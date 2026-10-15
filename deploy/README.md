@@ -35,3 +35,12 @@ The API listens on `127.0.0.1:8787` (`API_PORT` in `.env`), and nginx serves it 
 | Restore a backup | `gunzip -c backups/saguki-DATE.sql.gz \| docker compose exec -T db psql -U saguki saguki` |
 | Revoke a device | `docker compose exec db psql -U saguki saguki -c "DELETE FROM devices WHERE name LIKE 'android%'"` |
 | End-to-end check from your PC | `bash server/test/smoke.sh https://saguki.example.com <app password>` |
+
+## Profile pictures (Cloudflare R2)
+
+The app sends a 256 px PNG to `POST /avatar`. The server uploads it to R2 as
+`$R2_PREFIX<sha256>.png` and gives back `$R2_PUBLIC_URL/$R2_PREFIX<sha256>.png`.
+Until it's set up, uploads return 503 and the app falls back to an emoji or initial.
+
+1. In Cloudflare, go to R2 → Manage API tokens → Create token. Give it **Object Read & Write**, limited to the bucket.
+2. On the VPS, add `R2_ACCOUNT_ID`, `R2_TOKEN` (or `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY`), `R2_BUCKET` and `R2_PUBLIC_URL` to `/opt/saguki/deploy/.env` (see `.env.example`), then run `sudo systemctl restart saguki`.

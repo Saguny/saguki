@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:postgres/postgres.dart';
@@ -12,7 +13,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 
-const tables = {'decks', 'notes', 'cards', 'review_logs'};
+const tables = {'prefs', 'decks', 'notes', 'cards', 'review_logs'};
 
 late final Pool db;
 late final String password;
@@ -28,8 +29,10 @@ Future<void> main() async {
 
   final app = Router()
     ..get('/health', (Request _) => Response.ok('ok'))
+    ..get('/download', download)
     ..post('/login', login)
-    ..post('/sync', sync);
+    ..post('/sync', sync)
+    ..post('/avatar', avatar);
   final handler = const Pipeline().addMiddleware(logRequests()).addHandler(app.call);
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
   await io.serve(handler, InternetAddress.anyIPv4, port);
@@ -57,6 +60,121 @@ Future<void> migrate() async {
       created_at timestamptz NOT NULL DEFAULT now(),
       last_seen timestamptz NOT NULL DEFAULT now()
     )''');
+}
+
+/// GET /download: latest Android build, uploaded by CI to the mounted /apk folder.
+Future<Response> download(Request _) async {
+  final f = File(Platform.environment['APK_PATH'] ?? '/apk/saguki.apk');
+  if (!await f.exists()) return Response.notFound('No APK uploaded yet');
+  return Response.ok(f.openRead(), headers: {
+    'content-type': 'application/vnd.android.package-archive',
+    'content-length': '${await f.length()}',
+    'content-disposition': 'attachment; filename="saguki.apk"',
+    'cache-control': 'no-store',
+  });
+}
+
+/// POST /avatar (raw PNG/JPEG, ≤1 MB) → {url}. Stored in R2, served by the CDN.
+/// Content-addressed key, so the CDN can cache it forever.
+Future<Response> avatar(Request req) async {
+  if (!await authed(req)) return json({'error': 'unauthorized'}, 401);
+  final env = Platform.environment;
+  final bucket = env['R2_BUCKET'];
+  final endpoint = env['R2_ENDPOINT'] ?? (env['R2_ACCOUNT_ID'] == null ? null : 'https://${env['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com');
+  final creds = await r2Creds();
+  if (creds == null || [bucket, endpoint].any((v) => v == null || v.isEmpty)) {
+    return json({'error': 'uploads are not configured on the server'}, 503);
+  }
+  const limit = 1 << 20;
+  if ((req.contentLength ?? 0) > limit) return json({'error': 'image too large'}, 413);
+  final bytes = BytesBuilder(copy: false);
+  await for (final chunk in req.read()) {
+    bytes.add(chunk);
+    if (bytes.length > limit) return json({'error': 'image too large'}, 413);
+  }
+  final b = bytes.takeBytes();
+  final type = b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47
+      ? 'png'
+      : b.length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF
+          ? 'jpeg'
+          : null;
+  if (type == null) return json({'error': 'send a PNG or JPEG'}, 400);
+
+  final prefix = env['R2_PREFIX'] ?? 'pfps/';
+  final key = '$prefix${sha256.convert(b)}.${type == 'png' ? 'png' : 'jpg'}';
+  try {
+    await s3Put(Uri.parse('$endpoint/$bucket/$key'), b, 'image/$type', creds.id, creds.secret);
+  } catch (e) {
+    stderr.writeln('avatar upload failed: $e');
+    return json({'error': 'upload failed'}, 502);
+  }
+  final cdn = (env['R2_PUBLIC_URL'] ?? 'https://cdn.off-by-one.digital').replaceAll(RegExp(r'/+$'), '');
+  return json({'url': '$cdn/$key'});
+}
+
+({String id, String secret})? _creds;
+
+/// S3 keys from R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY, or derived from a Cloudflare API token
+/// (R2_TOKEN): key id = the token's id, secret = sha256(token). Null if neither is set.
+Future<({String id, String secret})?> r2Creds() async {
+  final env = Platform.environment;
+  if (_creds != null) return _creds;
+  final id = env['R2_ACCESS_KEY_ID'] ?? '', secret = env['R2_SECRET_ACCESS_KEY'] ?? '', token = env['R2_TOKEN'] ?? '';
+  if (id.isNotEmpty && secret.isNotEmpty) return _creds = (id: id, secret: secret);
+  if (token.isEmpty) return null;
+  final client = HttpClient();
+  try {
+    // User tokens (cfut_…) verify here; account tokens under the account.
+    for (final path in ['user/tokens/verify', 'accounts/${env['R2_ACCOUNT_ID']}/tokens/verify']) {
+      final r = await client.getUrl(Uri.parse('https://api.cloudflare.com/client/v4/$path'));
+      r.headers.set('authorization', 'Bearer $token');
+      final res = await r.close();
+      final body = jsonDecode(await res.transform(utf8.decoder).join());
+      if (res.statusCode == 200 && body['result']?['id'] is String) {
+        return _creds = (id: body['result']['id'] as String, secret: sha(token));
+      }
+    }
+    stderr.writeln('R2_TOKEN could not be verified with Cloudflare');
+    return null;
+  } catch (e) {
+    stderr.writeln('R2_TOKEN check failed: $e');
+    return null;
+  } finally {
+    client.close();
+  }
+}
+
+/// S3 PutObject with AWS SigV4 (R2 uses region "auto"). Path must already be URL-safe.
+Future<void> s3Put(Uri url, List<int> body, String type, String keyId, String secret) async {
+  final now = DateTime.now().toUtc();
+  final date = now.toIso8601String().replaceAll(RegExp(r'[-:]|\.\d+'), ''); // 20261015T075318Z
+  final day = date.substring(0, 8);
+  final payload = sha256.convert(body).toString();
+  final host = url.hasPort ? '${url.host}:${url.port}' : url.host;
+  final headers = {'content-type': type, 'host': host, 'x-amz-content-sha256': payload, 'x-amz-date': date};
+  final signed = headers.keys.join(';');
+  final canonical = ['PUT', url.path, '', for (final e in headers.entries) '${e.key}:${e.value}', '', signed, payload].join('\n');
+  final scope = '$day/auto/s3/aws4_request';
+  final toSign = ['AWS4-HMAC-SHA256', date, scope, sha256.convert(utf8.encode(canonical))].join('\n');
+  List<int> k = utf8.encode('AWS4$secret');
+  for (final part in [day, 'auto', 's3', 'aws4_request']) {
+    k = Hmac(sha256, k).convert(utf8.encode(part)).bytes;
+  }
+  final sig = Hmac(sha256, k).convert(utf8.encode(toSign));
+
+  final client = HttpClient();
+  try {
+    final r = await client.putUrl(url);
+    headers.forEach((k, v) => k == 'host' ? null : r.headers.set(k, v));
+    r.headers.set('authorization', 'AWS4-HMAC-SHA256 Credential=$keyId/$scope, SignedHeaders=$signed, Signature=$sig');
+    r.contentLength = body.length;
+    r.add(body);
+    final res = await r.close();
+    final text = await res.transform(utf8.decoder).join();
+    if (res.statusCode != 200) throw HttpException('R2 ${res.statusCode}: $text');
+  } finally {
+    client.close();
+  }
 }
 
 Response json(Object body, [int status = 200]) =>

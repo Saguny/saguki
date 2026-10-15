@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'db.dart';
 import 'lang.dart';
+import 'profile.dart';
 import 'srs.dart';
 import 'theme.dart';
 
@@ -13,6 +14,7 @@ Future<void> speak(String text, String lang) async {
   if (text.trim().isEmpty) return;
   try {
     await _tts.setLanguage(ttsLocale(lang));
+    await _tts.setSpeechRate(prefNum('ttsRate', 0.5));
     await _tts.speak(text);
   } catch (_) {} // no voice installed for this language: stay silent
 }
@@ -64,7 +66,7 @@ class _ReviewPageState extends State<ReviewPage> {
       _revealed = true;
       _next = preview(deck, c.card);
     });
-    speak(c.note.term, _lang(c.note));
+    if (prefOn('autoPlay')) speak(c.note.term, _lang(c.note));
   }
 
   Future<void> _rate(int rating) async {
@@ -217,7 +219,7 @@ class _CardView extends StatelessWidget {
                   style: ts(wide ? 22 : 18, color: C.text2, lang: lang), textAlign: TextAlign.center),
             ),
             const SizedBox(height: 4),
-            Text(n.term, style: ts(wide ? 72 : 56, w: 600, lang: lang, height: 1.15), textAlign: TextAlign.center),
+            Text(n.term, style: ts((wide ? 72 : 56) * prefNum('cardScale', 1), w: 600, lang: lang, height: 1.15), textAlign: TextAlign.center),
             if (revealed) ...[
               if (n.meaning.isNotEmpty) ...[
                 const SizedBox(height: 14),

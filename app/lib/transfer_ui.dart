@@ -36,7 +36,7 @@ Future<void> _busy(BuildContext context, String label, Future<String?> Function(
 }
 
 Future<String?> _pick(List<String> exts) async {
-  // Android can't filter custom extensions like .saguki, so pick anything and check here.
+  // Android can't filter custom extensions like .sgki, so pick anything and check here.
   final files = await FilePicker.pickFiles(dialogTitle: 'Import');
   if (files.isEmpty) return null;
   final path = files.first.path;
@@ -46,11 +46,11 @@ Future<String?> _pick(List<String> exts) async {
   return path;
 }
 
-/// Import a .saguki backup or an Anki .apkg/.colpkg into the collection.
+/// Import a .sgki backup or an Anki .apkg/.colpkg into the collection.
 Future<void> importFile(BuildContext context) => _busy(context, 'Importing…', () async {
-      final path = await _pick(['saguki', 'apkg', 'colpkg']);
+      final path = await _pick(['sgki', 'saguki', 'apkg', 'colpkg']); // .saguki: older exports
       if (path == null) return null;
-      return path.toLowerCase().endsWith('.saguki')
+      return !RegExp(r'\.(apkg|colpkg)$', caseSensitive: false).hasMatch(path)
           ? importSaguki(await File(path).readAsBytes())
           : importAnki(path);
     });
@@ -61,7 +61,7 @@ Future<void> importCsvInto(BuildContext context, Deck deck) => _busy(context, 'I
       return importCsv(await File(path).readAsString(), deck);
     });
 
-/// Export everything ([deck] null) or one deck, as .saguki or CSV.
+/// Export everything ([deck] null) or one deck, as .sgki or CSV.
 Future<void> exportFile(BuildContext context, {Deck? deck, bool csv = false}) =>
     _busy(context, 'Exporting…', () async {
       final base = (deck?.name ?? 'saguki-${DateTime.now().toIso8601String().substring(0, 10)}')
@@ -71,7 +71,7 @@ Future<void> exportFile(BuildContext context, {Deck? deck, bool csv = false}) =>
           : Uint8List.fromList(await exportSaguki(deckId: deck?.id));
       final uri = await FilePicker.saveFile(
         dialogTitle: 'Export',
-        fileName: '$base.${csv ? 'csv' : 'saguki'}',
+        fileName: '$base.${csv ? 'csv' : 'sgki'}',
         bytes: bytes,
       );
       return uri == null ? null : 'Exported';

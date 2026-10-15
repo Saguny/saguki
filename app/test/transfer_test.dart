@@ -84,7 +84,7 @@ void main() {
     });
   }
 
-  test('.saguki and CSV round-trip', () async {
+  test('.sgki and CSV round-trip', () async {
     db = AppDb(NativeDatabase.memory());
     await db.into(db.decks).insert(DecksCompanion.insert(id: const Value('d1'), name: 'JP'));
     await db.saveNote(const NotesCompanion(deckId: Value('d1'), term: Value('勉強'), meaning: Value('study, learn')));

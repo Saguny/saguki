@@ -67,6 +67,11 @@ class ReviewLogs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Profile and settings, one row per key (id = key) so each setting syncs on its own.
+class Prefs extends Table with Synced {
+  TextColumn get value => text()();
+}
+
 class DeckWithCounts {
   DeckWithCounts(this.deck, this.due, this.fresh);
   final Deck deck;
@@ -82,12 +87,12 @@ DateTime dayStart([DateTime? now]) {
   return now.isBefore(d) ? d.subtract(const Duration(days: 1)) : d;
 }
 
-@DriftDatabase(tables: [Decks, Notes, Cards, ReviewLogs])
+@DriftDatabase(tables: [Decks, Notes, Cards, ReviewLogs, Prefs])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'saguki'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -101,6 +106,7 @@ class AppDb extends _$AppDb {
               await customStatement('UPDATE $t SET modified_at = modified_at * 1000');
             }
           }
+          if (from < 4) await m.createTable(prefs);
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
@@ -109,7 +115,7 @@ class AppDb extends _$AppDb {
 
   late final _columns = {for (final t in allTables) t.actualTableName: t.$columns.map((c) => c.name).toSet()};
 
-  /// Upsert a raw row keyed by SQLite column names (sync pulls, .saguki imports).
+  /// Upsert a raw row keyed by SQLite column names (sync pulls, .sgki imports).
   /// Unknown tables/columns are dropped. Returns false if the row was malformed.
   Future<bool> upsertRaw(String table, Map<String, dynamic> row, {required bool dirty}) async {
     final known = _columns[table];
@@ -229,6 +235,13 @@ class AppDb extends _$AppDb {
         await (update(cards)..where((x) => x.noteId.equals(id)))
             .write(CardsCompanion(modifiedAt: now, deleted: const Value(true), dirty: const Value(true)));
       });
+
+  Stream<Map<String, String>> watchPrefs() => (select(prefs)..where((p) => p.deleted.equals(false)))
+      .watch()
+      .map((rows) => {for (final p in rows) p.id: p.value});
+
+  Future<void> setPref(String key, String value) => into(prefs).insertOnConflictUpdate(
+      PrefsCompanion.insert(id: Value(key), value: value, modifiedAt: Value(nowMs()), dirty: const Value(true)));
 
   Future<void> saveDeck(DecksCompanion d) async {
     if (d.id.present) {

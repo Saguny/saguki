@@ -79,7 +79,7 @@ Language codes are BCP‑47: `ja`, `zh-Hant`, `zh-Hans`, `ko`, …
 | Format | Import | Export |
 |---|---|---|
 | CSV / TSV (column mapping UI) | ✅ | ✅ |
-| `.saguki` (zip of JSON, full fidelity incl. scheduling + review history) | ✅ | ✅ |
+| `.sgki` (zip of JSON, full fidelity incl. scheduling + review history) | ✅ | ✅ |
 | Anki `.apkg` | ✅ notes + fields mapped to our fields; review history converted | ❌ (skip, add if you actually need to go back to Anki) |
 
 **As built in P2** (`app/lib/transfer.dart`):
@@ -182,7 +182,7 @@ saguki/
 |---|---|---|
 | **P0** | Flutter app, theme tokens, drift schema, deck and card CRUD, FSRS review screen, TTS | You can study a deck offline on PC and on the phone |
 | **P1** | Server, Postgres schema, login + device tokens, push/pull sync, docker compose on the VPS | Add a card on the PC and it appears on the phone within a minute |
-| **P2** | Import/export: CSV, `.saguki`, `.apkg` | Your existing Anki decks come over with their history |
+| **P2** | Import/export: CSV, `.sgki`, `.apkg` | Your existing Anki decks come over with their history |
 | **P3** | Stats screen + profile | Heatmap and the stats in §5 render from real data |
 | **P4** | Language detection everywhere, furigana/zhuyin ruby, pill switcher, JMdict/CC-CEDICT autofill | Typing 勉強 autofills べんきょう + "study" |
 | **P5** | Release: signed APK (`--split-per-abi`), Windows MSIX/installer, daily review reminder notification | Installed on both devices |

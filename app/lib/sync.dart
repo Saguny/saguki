@@ -9,7 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'db.dart';
 
 /// Push order matters for foreign keys on the receiving side.
-const _tables = ['decks', 'notes', 'cards', 'review_logs'];
+const _tables = ['prefs', 'decks', 'notes', 'cards', 'review_logs'];
 
 enum SyncState { off, idle, syncing, error }
 
@@ -97,6 +97,18 @@ class Sync {
     }
     await run();
     return status.value.state == SyncState.error ? status.value.message : null;
+  }
+
+  /// Upload a profile picture through the server (it stores it on the CDN); returns the public URL.
+  static Future<String> uploadAvatar(List<int> png) async {
+    if (!connected) throw const HttpException('Connect sync first: pictures are stored through your server.');
+    final r = await http
+        .post(Uri.parse('${_cfg['url']}/avatar'),
+            headers: {'content-type': 'image/png', 'authorization': 'Bearer ${_cfg['token']}'}, body: png)
+        .timeout(const Duration(seconds: 30));
+    if (r.statusCode == 503) throw const HttpException('Picture uploads aren’t set up on the server yet.');
+    if (r.statusCode != 200) throw HttpException('Upload failed (${r.statusCode})');
+    return jsonDecode(r.body)['url'];
   }
 
   static Future<void> disconnect() async {

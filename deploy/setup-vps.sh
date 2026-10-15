@@ -15,7 +15,7 @@ SYSTEMCTL=$(command -v systemctl)
 
 id saguki &>/dev/null || useradd -m -s /bin/bash saguki
 usermod -aG docker saguki
-mkdir -p /opt/saguki/deploy /opt/saguki/server
+mkdir -p /opt/saguki/deploy /opt/saguki/server /opt/saguki/apk
 chown -R saguki:saguki /opt/saguki
 
 # The deploy user may restart this one service and nothing else.

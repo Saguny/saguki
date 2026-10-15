@@ -1,4 +1,4 @@
-/// Import/export (PLAN.md §4): .saguki (full fidelity), CSV/TSV, Anki .apkg/.colpkg import.
+/// Import/export (PLAN.md §4): .sgki (full fidelity), CSV/TSV, Anki .apkg/.colpkg import.
 library;
 
 import 'dart:convert';
@@ -14,14 +14,15 @@ import 'csv.dart';
 import 'db.dart';
 import 'lang.dart';
 
-const _order = ['decks', 'notes', 'cards', 'review_logs'];
+const _order = ['prefs', 'decks', 'notes', 'cards', 'review_logs'];
 const csvHeader = ['term', 'pronunciation', 'meaning', 'explanation', 'example', 'example_translation', 'tags'];
 
-// ---------------------------------------------------------------- .saguki
+// ---------------------------------------------------------------- .sgki
 
 /// Zip with saguki.json holding raw rows. [deckId] limits it to one deck.
 Future<List<int>> exportSaguki({String? deckId}) async {
   final where = {
+    'prefs': deckId == null ? 'deleted = 0' : '?1 IS NULL', // profile only goes into full backups
     'decks': deckId == null ? 'deleted = 0' : 'deleted = 0 AND id = ?1',
     'notes': deckId == null ? 'deleted = 0' : 'deleted = 0 AND deck_id = ?1',
     'cards': deckId == null

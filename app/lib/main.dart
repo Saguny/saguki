@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'db.dart';
 import 'deck.dart';
 import 'lang.dart';
+import 'profile.dart';
+import 'stats_page.dart';
 import 'sync.dart';
 import 'theme.dart';
 import 'transfer_ui.dart';
@@ -10,12 +12,74 @@ import 'transfer_ui.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   Sync.start();
+  listenPrefs();
   runApp(MaterialApp(
     title: 'Saguki',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(),
-    home: const Home(),
+    home: const Shell(),
   ));
+}
+
+/// Today / Stats / Profile: a rail on wide windows, a bottom bar on phones.
+class Shell extends StatefulWidget {
+  const Shell({super.key});
+
+  @override
+  State<Shell> createState() => _ShellState();
+}
+
+class _ShellState extends State<Shell> {
+  int _i = 0;
+  static const _tabs = [
+    (Icons.style_outlined, Icons.style, 'Today'),
+    (Icons.insights_outlined, Icons.insights, 'Stats'),
+    (Icons.person_outline, Icons.person, 'Profile'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final body = IndexedStack(index: _i, children: const [Home(), StatsPage(), ProfilePage()]);
+    void go(int i) => setState(() => _i = i);
+    if (MediaQuery.sizeOf(context).width >= 840) {
+      return Scaffold(
+        body: Row(children: [
+          SafeArea(
+            child: NavigationRail(
+              selectedIndex: _i,
+              onDestinationSelected: go,
+              labelType: NavigationRailLabelType.all,
+              backgroundColor: C.bg,
+              indicatorColor: C.accentContainer,
+              selectedIconTheme: const IconThemeData(color: C.accent),
+              unselectedIconTheme: const IconThemeData(color: C.text3),
+              selectedLabelTextStyle: ts(12, w: 600, color: C.accent),
+              unselectedLabelTextStyle: T.caption,
+              destinations: [
+                for (final t in _tabs) NavigationRailDestination(icon: Icon(t.$1), selectedIcon: Icon(t.$2), label: Text(t.$3)),
+              ],
+            ),
+          ),
+          const VerticalDivider(width: 0.5, thickness: 0.5),
+          Expanded(child: body),
+        ]),
+      );
+    }
+    return Scaffold(
+      body: body,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _i,
+        onDestinationSelected: go,
+        backgroundColor: C.surface1,
+        indicatorColor: C.accentContainer,
+        height: 64,
+        destinations: [
+          for (final t in _tabs)
+            NavigationDestination(icon: Icon(t.$1, color: C.text3), selectedIcon: Icon(t.$2, color: C.accent), label: t.$3),
+        ],
+      ),
+    );
+  }
 }
 
 /// Centers content at a readable width on desktop.
@@ -57,7 +121,7 @@ class Home extends StatelessWidget {
                     icon: const Icon(Icons.more_horiz, color: C.accent),
                     itemBuilder: (_) => [
                       PopupMenuItem(onTap: () => importFile(context), child: const Text('Import Anki or Saguki file…')),
-                      PopupMenuItem(onTap: () => exportFile(context), child: const Text('Export everything (.saguki)')),
+                      PopupMenuItem(onTap: () => exportFile(context), child: const Text('Export everything (.sgki)')),
                     ],
                   ),
                 ]),
@@ -152,19 +216,19 @@ class _SyncButton extends StatelessWidget {
             },
             color: switch (s.state) { SyncState.error => C.again, SyncState.off => C.text3, _ => C.accent },
           ),
-          onPressed: () => showDialog(context: context, builder: (_) => const _SyncDialog()),
+          onPressed: () => showDialog(context: context, builder: (_) => const SyncDialog()),
         ),
       );
 }
 
-class _SyncDialog extends StatefulWidget {
-  const _SyncDialog();
+class SyncDialog extends StatefulWidget {
+  const SyncDialog({super.key});
 
   @override
-  State<_SyncDialog> createState() => _SyncDialogState();
+  State<SyncDialog> createState() => SyncDialogState();
 }
 
-class _SyncDialogState extends State<_SyncDialog> {
+class SyncDialogState extends State<SyncDialog> {
   final _url = TextEditingController(text: Sync.server);
   final _pw = TextEditingController();
   String? _error;

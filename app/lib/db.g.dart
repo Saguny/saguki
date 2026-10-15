@@ -2610,6 +2610,357 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
   }
 }
 
+class $PrefsTable extends Prefs with TableInfo<$PrefsTable, Pref> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PrefsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v7(),
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<int> modifiedAt = GeneratedColumn<int>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
+  @override
+  late final GeneratedColumn<bool> dirty = GeneratedColumn<bool>(
+    'dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("dirty" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, modifiedAt, deleted, dirty, value];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'prefs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Pref> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('dirty')) {
+      context.handle(
+        _dirtyMeta,
+        dirty.isAcceptableOrUnknown(data['dirty']!, _dirtyMeta),
+      );
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Pref map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Pref(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+      dirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}dirty'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+    );
+  }
+
+  @override
+  $PrefsTable createAlias(String alias) {
+    return $PrefsTable(attachedDatabase, alias);
+  }
+}
+
+class Pref extends DataClass implements Insertable<Pref> {
+  final String id;
+  final int modifiedAt;
+  final bool deleted;
+  final bool dirty;
+  final String value;
+  const Pref({
+    required this.id,
+    required this.modifiedAt,
+    required this.deleted,
+    required this.dirty,
+    required this.value,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['modified_at'] = Variable<int>(modifiedAt);
+    map['deleted'] = Variable<bool>(deleted);
+    map['dirty'] = Variable<bool>(dirty);
+    map['value'] = Variable<String>(value);
+    return map;
+  }
+
+  PrefsCompanion toCompanion(bool nullToAbsent) {
+    return PrefsCompanion(
+      id: Value(id),
+      modifiedAt: Value(modifiedAt),
+      deleted: Value(deleted),
+      dirty: Value(dirty),
+      value: Value(value),
+    );
+  }
+
+  factory Pref.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Pref(
+      id: serializer.fromJson<String>(json['id']),
+      modifiedAt: serializer.fromJson<int>(json['modifiedAt']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+      dirty: serializer.fromJson<bool>(json['dirty']),
+      value: serializer.fromJson<String>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'modifiedAt': serializer.toJson<int>(modifiedAt),
+      'deleted': serializer.toJson<bool>(deleted),
+      'dirty': serializer.toJson<bool>(dirty),
+      'value': serializer.toJson<String>(value),
+    };
+  }
+
+  Pref copyWith({
+    String? id,
+    int? modifiedAt,
+    bool? deleted,
+    bool? dirty,
+    String? value,
+  }) => Pref(
+    id: id ?? this.id,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    deleted: deleted ?? this.deleted,
+    dirty: dirty ?? this.dirty,
+    value: value ?? this.value,
+  );
+  Pref copyWithCompanion(PrefsCompanion data) {
+    return Pref(
+      id: data.id.present ? data.id.value : this.id,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      dirty: data.dirty.present ? data.dirty.value : this.dirty,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Pref(')
+          ..write('id: $id, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deleted: $deleted, ')
+          ..write('dirty: $dirty, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, modifiedAt, deleted, dirty, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Pref &&
+          other.id == this.id &&
+          other.modifiedAt == this.modifiedAt &&
+          other.deleted == this.deleted &&
+          other.dirty == this.dirty &&
+          other.value == this.value);
+}
+
+class PrefsCompanion extends UpdateCompanion<Pref> {
+  final Value<String> id;
+  final Value<int> modifiedAt;
+  final Value<bool> deleted;
+  final Value<bool> dirty;
+  final Value<String> value;
+  final Value<int> rowid;
+  const PrefsCompanion({
+    this.id = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.dirty = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PrefsCompanion.insert({
+    this.id = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.dirty = const Value.absent(),
+    required String value,
+    this.rowid = const Value.absent(),
+  }) : value = Value(value);
+  static Insertable<Pref> custom({
+    Expression<String>? id,
+    Expression<int>? modifiedAt,
+    Expression<bool>? deleted,
+    Expression<bool>? dirty,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (deleted != null) 'deleted': deleted,
+      if (dirty != null) 'dirty': dirty,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PrefsCompanion copyWith({
+    Value<String>? id,
+    Value<int>? modifiedAt,
+    Value<bool>? deleted,
+    Value<bool>? dirty,
+    Value<String>? value,
+    Value<int>? rowid,
+  }) {
+    return PrefsCompanion(
+      id: id ?? this.id,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      deleted: deleted ?? this.deleted,
+      dirty: dirty ?? this.dirty,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<int>(modifiedAt.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (dirty.present) {
+      map['dirty'] = Variable<bool>(dirty.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PrefsCompanion(')
+          ..write('id: $id, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('deleted: $deleted, ')
+          ..write('dirty: $dirty, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDb extends GeneratedDatabase {
   _$AppDb(QueryExecutor e) : super(e);
   $AppDbManager get managers => $AppDbManager(this);
@@ -2617,6 +2968,7 @@ abstract class _$AppDb extends GeneratedDatabase {
   late final $NotesTable notes = $NotesTable(this);
   late final $CardsTable cards = $CardsTable(this);
   late final $ReviewLogsTable reviewLogs = $ReviewLogsTable(this);
+  late final $PrefsTable prefs = $PrefsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2626,6 +2978,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     notes,
     cards,
     reviewLogs,
+    prefs,
   ];
 }
 
@@ -4498,6 +4851,202 @@ typedef $$ReviewLogsTableProcessedTableManager =
       ReviewLog,
       PrefetchHooks Function({bool cardId})
     >;
+typedef $$PrefsTableCreateCompanionBuilder = PrefsCompanion Function({
+  Value<String> id,
+  Value<int> modifiedAt,
+  Value<bool> deleted,
+  Value<bool> dirty,
+  required String value,
+  Value<int> rowid,
+});
+typedef $$PrefsTableUpdateCompanionBuilder = PrefsCompanion Function({
+  Value<String> id,
+  Value<int> modifiedAt,
+  Value<bool> deleted,
+  Value<bool> dirty,
+  Value<String> value,
+  Value<int> rowid,
+});
+
+class $$PrefsTableFilterComposer extends Composer<_$AppDb, $PrefsTable> {
+  $$PrefsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PrefsTableOrderingComposer extends Composer<_$AppDb, $PrefsTable> {
+  $$PrefsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PrefsTableAnnotationComposer extends Composer<_$AppDb, $PrefsTable> {
+  $$PrefsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<bool> get dirty =>
+      $composableBuilder(column: $table.dirty, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+}
+
+class $$PrefsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $PrefsTable,
+          Pref,
+          $$PrefsTableFilterComposer,
+          $$PrefsTableOrderingComposer,
+          $$PrefsTableAnnotationComposer,
+          $$PrefsTableCreateCompanionBuilder,
+          $$PrefsTableUpdateCompanionBuilder,
+          (Pref, BaseReferences<_$AppDb, $PrefsTable, Pref>),
+          Pref,
+          PrefetchHooks Function()
+        > {
+  $$PrefsTableTableManager(_$AppDb db, $PrefsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PrefsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PrefsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PrefsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> modifiedAt = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<bool> dirty = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PrefsCompanion(
+                id: id,
+                modifiedAt: modifiedAt,
+                deleted: deleted,
+                dirty: dirty,
+                value: value,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> modifiedAt = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<bool> dirty = const Value.absent(),
+                required String value,
+                Value<int> rowid = const Value.absent(),
+              }) => PrefsCompanion.insert(
+                id: id,
+                modifiedAt: modifiedAt,
+                deleted: deleted,
+                dirty: dirty,
+                value: value,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PrefsTable, Pref>(table),
+                  BaseReferences<_$AppDb, $PrefsTable, Pref>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PrefsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $PrefsTable,
+      Pref,
+      $$PrefsTableFilterComposer,
+      $$PrefsTableOrderingComposer,
+      $$PrefsTableAnnotationComposer,
+      $$PrefsTableCreateCompanionBuilder,
+      $$PrefsTableUpdateCompanionBuilder,
+      (Pref, BaseReferences<_$AppDb, $PrefsTable, Pref>),
+      Pref,
+      PrefetchHooks Function()
+    >;
 
 class $AppDbManager {
   final _$AppDb _db;
@@ -4510,4 +5059,6 @@ class $AppDbManager {
       $$CardsTableTableManager(_db, _db.cards);
   $$ReviewLogsTableTableManager get reviewLogs =>
       $$ReviewLogsTableTableManager(_db, _db.reviewLogs);
+  $$PrefsTableTableManager get prefs =>
+      $$PrefsTableTableManager(_db, _db.prefs);
 }

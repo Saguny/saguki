@@ -39,7 +39,7 @@ class _DeckPageState extends State<DeckPage> {
                 itemBuilder: (_) => [
                   PopupMenuItem(onTap: () => editDeck(context, deck), child: const Text('Edit deck')),
                   PopupMenuItem(onTap: () => importCsvInto(context, deck), child: const Text('Import CSV/TSV…')),
-                  PopupMenuItem(onTap: () => exportFile(context, deck: deck), child: const Text('Export deck (.saguki)')),
+                  PopupMenuItem(onTap: () => exportFile(context, deck: deck), child: const Text('Export deck (.sgki)')),
                   PopupMenuItem(onTap: () => exportFile(context, deck: deck, csv: true), child: const Text('Export deck (CSV)')),
                   PopupMenuItem(
                     onTap: () => _confirmDelete(context, deck),

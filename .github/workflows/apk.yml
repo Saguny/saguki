@@ -1,0 +1,43 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/apk.yml']
+  workflow_dispatch:
+
+concurrency: apk
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.47.7', channel: stable, cache: true }
+
+      - name: Signing key
+        working-directory: app/android
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=saguki\nstoreFile=%s\n' \
+            "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" "$RUNNER_TEMP/release.jks" > key.properties
+
+      - name: Build
+        working-directory: app
+        # arm64 only keeps it ~25 MB; build numbers above local builds so phones accept updates.
+        run: flutter build apk --release --target-platform android-arm64 --build-number $((100 + ${{ github.run_number }}))
+
+      - name: Upload to VPS (served at /download)
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+          SSH="ssh -p ${{ secrets.VPS_PORT || 22 }}"; TARGET="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          $SSH "$TARGET" 'mkdir -p /opt/saguki/apk'
+          rsync -z -e "$SSH" app/build/app/outputs/flutter-apk/app-release.apk "$TARGET:/opt/saguki/apk/saguki.apk"

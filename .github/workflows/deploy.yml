@@ -31,6 +31,7 @@ jobs:
         run: |
           $SSH "$TARGET" '
             set -e
+            mkdir -p /opt/saguki/apk # before docker can create it as root
             cd /opt/saguki/deploy
             docker compose --profile vps build
             sudo systemctl restart saguki
