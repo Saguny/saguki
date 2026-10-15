@@ -1,0 +1,48 @@
+name: Windows installer
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+concurrency: windows
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.47.7', channel: stable, cache: true }
+
+      - name: Build
+        working-directory: app
+        run: flutter build windows --release --build-number $((100 + ${{ github.run_number }}))
+
+      - name: Package
+        working-directory: app
+        run: |
+          # Ship the MSVC runtime so it runs on PCs without the VC++ redistributable.
+          cp /c/Windows/System32/{msvcp140,vcruntime140,vcruntime140_1}.dll build/windows/x64/runner/Release/
+          ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          [ -f "$ISCC" ] || choco install innosetup -y --no-progress
+          "$ISCC" //DAppVersion=0.1.0.$((100 + ${{ github.run_number }})) windows/installer.iss
+
+      - name: Upload to VPS (served at /download/windows)
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+          PORT="${{ secrets.VPS_PORT || 22 }}"; TARGET="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          ssh -p "$PORT" "$TARGET" 'mkdir -p /opt/saguki/apk'
+          scp -P "$PORT" app/build/installer/saguki-setup.exe "$TARGET:/opt/saguki/apk/saguki-setup.exe.tmp"
+          ssh -p "$PORT" "$TARGET" 'mv /opt/saguki/apk/saguki-setup.exe.tmp /opt/saguki/apk/saguki-setup.exe'

@@ -17,6 +17,7 @@
     environment:
       DATABASE_URL: postgresql://saguki:${DB_PASSWORD}@db:5432/saguki?sslmode=disable
       SAGUKI_PASSWORD: ${SAGUKI_PASSWORD:?set SAGUKI_PASSWORD in .env}
+      SAGUKI_OWNER: ${SAGUKI_OWNER:-owner} # your username; SAGUKI_PASSWORD is your password
       # Profile pictures: R2 bucket behind the CDN (optional; uploads return 503 without it).
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_TOKEN: ${R2_TOKEN:-}

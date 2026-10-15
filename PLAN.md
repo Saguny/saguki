@@ -73,6 +73,13 @@ Language codes are BCP‑47: `ja`, `zh-Hant`, `zh-Hans`, `ko`, …
 
 **Phase 4 bonus: dictionary autofill.** Type a term and the term, pronunciation, and English get filled from **JMdict** (JP) and **CC‑CEDICT** (zh), both free (CC BY-SA). They are loaded into Postgres on the server. This needs a connection; offline you type the fields by hand.
 
+**As built in P4:**
+- Ruby over the term: `pron.dart` aligns furigana to kanji runs (the kana in the word anchor the split) and accepts Anki's `食[た]べ 物[もの]` syntax. Zhuyin and pinyin go per character when the syllable count matches. Otherwise the whole reading sits over the whole word.
+- `/dict` on the server: JMdict and CC-CEDICT are downloaded into the `dict` table on first start, which takes about 15 s and about 525k rows. A failed download retries on the next restart.
+- The editor autofills empty pronunciation and English 400 ms after you stop typing, and lists other matches to tap.
+- zh-Hant pronunciation follows the Profile setting (zhuyin or pinyin), and zh-Hans uses pinyin.
+- The pill filter is a synced pref (`langFilter`) shared by Today and Stats.
+
 ---
 
 ## 4. Import / export

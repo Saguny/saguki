@@ -20,7 +20,7 @@ void main() {
       db = d;
       Sync.configDir = dir.path;
       if (connect) {
-        expect(await Sync.connect(url!, pw!), isNull);
+        expect(await Sync.connect(url!, '', pw!), isNull);
       } else {
         await Sync.load();
         await Sync.run();

@@ -2,13 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'lang.dart';
 import 'main.dart' show PageBody;
+import 'profile.dart';
 import 'stats.dart';
 import 'theme.dart';
 
-/// Sequential lavender ramp (PLAN.md §7), empty → most.
-const ramp = [C.surface2, Color(0xFF3A3160), Color(0xFF5B4C99), Color(0xFF8B78D9), C.accent];
+List<Color> get ramp => C.ramp;
 
 String fmtN(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+$)'), (_) => ',');
 
@@ -33,44 +32,31 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   String? _lang;
-  late Stream<Stats> _stream = watchStats();
-
-  void _filter(String? lang) => setState(() {
-        _lang = lang;
-        _stream = watchStats(lang: lang);
-      });
+  late Stream<Stats> _stream = watchStats(lang: _lang = langFilter);
 
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
-          child: StreamBuilder(
-            stream: _stream,
-            builder: (context, snap) {
-              final s = snap.data;
-              return PageBody(children: [
-                Text('Stats', style: T.largeTitle),
-                const SizedBox(height: 12),
-                if (s != null && s.langs.length > 1) ...[
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final l in [null, ...s.langs])
-                      ChoiceChip(
-                        label: Text(l == null ? 'All' : languages[l] ?? l, style: ts(14, lang: l)),
-                        selected: _lang == l,
-                        showCheckmark: false,
-                        selectedColor: C.accentContainer,
-                        backgroundColor: C.surface1,
-                        side: BorderSide.none,
-                        shape: const StadiumBorder(),
-                        onSelected: (_) => _filter(l),
-                      ),
-                  ]),
-                  const SizedBox(height: 16),
-                ],
-                if (s != null) ..._body(s),
-              ]);
+          child: ValueListenableBuilder(
+            valueListenable: prefs,
+            builder: (context, _, _) {
+              if (langFilter != _lang) _stream = watchStats(lang: _lang = langFilter);
+              return _content();
             },
           ),
         ),
+      );
+
+  Widget _content() => StreamBuilder(
+        stream: _stream,
+        builder: (context, snap) {
+          final s = snap.data;
+          return PageBody(children: [
+            Text('Stats', style: T.largeTitle),
+            const SizedBox(height: 12),
+            if (s != null) ...[LangPills(s.langs), ..._body(s)],
+          ]);
+        },
       );
 
   List<Widget> _body(Stats s) {
@@ -290,9 +276,9 @@ class Bars extends StatelessWidget {
                       ? null
                       : Container(
                           height: max(2, values[i] / top * height),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: C.accent,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                           ),
                         ),
                 ),

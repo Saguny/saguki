@@ -1,7 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 
-/// Color tokens (PLAN.md §7). Dark only.
+/// Accent choices (Profile). Pastels at roughly the lavender's lightness so text stays readable.
+const accentSwatches = {
+  'Lavender': Color(0xFFB9A7FF),
+  'Periwinkle': Color(0xFF9FB4FF),
+  'Sky': Color(0xFF8EC9FF),
+  'Teal': Color(0xFF7FD8CF),
+  'Mint': Color(0xFF86D9A8),
+  'Lime': Color(0xFFC5E07A),
+  'Amber': Color(0xFFF2C078),
+  'Peach': Color(0xFFFFAE8A),
+  'Rose': Color(0xFFFF8AB0),
+  'Orchid': Color(0xFFE39BF0),
+};
+
+/// Picked accent (Profile), or null for lavender. Set from prefs; the app rebuilds on change.
+Color? accentPick;
+
+/// A lavender-derived token re-tinted to the picked accent's hue and saturation (lavender is
+/// fully saturated, so its saturation scales by the pick's), keeping its lightness.
+Color _tinted(int argb) {
+  final pick = accentPick;
+  if (pick == null) return Color(argb);
+  final h = HSLColor.fromColor(Color(argb)), p = HSLColor.fromColor(pick);
+  return h.withHue(p.hue).withSaturation(h.saturation * p.saturation).toColor();
+}
+
+/// Color tokens (PLAN.md §7). Dark only. Accent tokens follow [accentPick].
 class C {
   static const bg = Color(0xFF0E0D12);
   static const surface1 = Color(0xFF16151C);
@@ -11,9 +37,11 @@ class C {
   static const text = Color(0xFFECEAF2);
   static const text2 = Color(0xFFA9A5B8);
   static const text3 = Color(0xFF6F6B80);
-  static const accent = Color(0xFFB9A7FF);
-  static const accentContainer = Color(0xFF2C2547);
-  static const onAccent = Color(0xFF17132A);
+  static Color get accent => accentPick ?? const Color(0xFFB9A7FF);
+  static Color get accentContainer => _tinted(0xFF2C2547);
+  static Color get onAccent => _tinted(0xFF17132A);
+  /// Sequential ramp for heatmap and card states, empty → most.
+  static List<Color> get ramp => [surface2, for (final c in [0xFF3A3160, 0xFF5B4C99, 0xFF8B78D9]) _tinted(c), accent];
   static const again = Color(0xFFFF8A94);
   static const hard = Color(0xFFF2C078);
   static const good = Color(0xFF86D9A8);
@@ -64,7 +92,7 @@ ThemeData buildTheme() {
   final base = ThemeData(brightness: Brightness.dark, useMaterial3: true, fontFamily: kFont);
   return base.copyWith(
     scaffoldBackgroundColor: C.bg,
-    colorScheme: const ColorScheme.dark(
+    colorScheme: ColorScheme.dark(
       surface: C.bg,
       surfaceContainerLow: C.surface1,
       surfaceContainer: C.surface2,
@@ -94,8 +122,8 @@ ThemeData buildTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: T.headline,
-      iconTheme: const IconThemeData(color: C.accent),
-      actionsIconTheme: const IconThemeData(color: C.accent),
+      iconTheme: IconThemeData(color: C.accent),
+      actionsIconTheme: IconThemeData(color: C.accent),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -115,7 +143,7 @@ ThemeData buildTheme() {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: C.accent, width: 1),
+        borderSide: BorderSide(color: C.accent, width: 1),
       ),
     ),
     dialogTheme: DialogThemeData(

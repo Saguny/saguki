@@ -5,6 +5,16 @@ import 'package:saguki/db.dart';
 import 'package:saguki/stats.dart';
 
 void main() {
+  test('day rollover hour', () {
+    final late = DateTime(2026, 3, 10, 2, 30);
+    expect(dayStart(late), DateTime(2026, 3, 9, 4));
+    expect(dayKey(late), '2026-03-09');
+    rolloverHour = 0;
+    expect(dayStart(late), DateTime(2026, 3, 10));
+    expect(dayKey(late), '2026-03-10');
+    rolloverHour = 4;
+  });
+
   test('stats from review history', () async {
     db = AppDb(NativeDatabase.memory());
     await db.into(db.decks).insert(DecksCompanion.insert(id: const Value('ja'), name: 'JP', language: const Value('ja')));
@@ -50,6 +60,10 @@ void main() {
     expect(zh.totalReviews, 0);
     expect(zh.states.fresh, 1);
     expect(s.langs, ['ja', 'zh-Hant']);
+
+    // Reminder text: the JP card is due in 2 days; the ZH card is new (daily limit 20).
+    expect(await db.workAt(DateTime.now()), (due: 0, fresh: 1));
+    expect(await db.workAt(DateTime.now().add(const Duration(days: 3))), (due: 1, fresh: 1));
 
     await db.setPref('name', 'Sagu');
     await db.setPref('name', 'Saguny');

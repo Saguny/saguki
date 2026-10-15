@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import 'db.dart';
 import 'lang.dart';
 import 'main.dart' show PageBody;
-import 'review.dart' show speak;
+import 'profile.dart';
+import 'pron.dart';
+import 'review.dart' show RubyText, speak;
+import 'sync.dart';
 import 'theme.dart';
+
+typedef _Hit = ({String term, String reading, List<String> senses});
 
 class NoteEditor extends StatefulWidget {
   const NoteEditor({super.key, required this.deck, this.note});
@@ -25,6 +32,43 @@ class _NoteEditorState extends State<NoteEditor> {
   late final example = TextEditingController(text: n?.example);
   late final exampleTr = TextEditingController(text: n?.exampleTranslation);
   String? _error;
+  Timer? _debounce;
+  List<_Hit> _hits = const [];
+  String _looked = '';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _termChanged(String _) {
+    setState(() => _error = null);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _lookup);
+  }
+
+  /// Dictionary autofill: fills empty pronunciation + English with the best match; other matches stay tappable.
+  Future<void> _lookup() async {
+    final q = term.text.trim(), lang = _lang;
+    if (q == _looked) return;
+    _looked = q;
+    final hits = q.isEmpty || !lang.startsWith(RegExp('ja|zh')) ? <_Hit>[] : await Sync.lookup(q, lang);
+    if (!mounted || term.text.trim() != q) return;
+    setState(() => _hits = hits);
+    if (hits.isNotEmpty && pron.text.isEmpty && meaning.text.isEmpty) _fill(hits.first);
+  }
+
+  String _reading(String r) => switch (_lang) {
+        'ja' => r,
+        'zh-Hant' when pref('zhPron', 'zhuyin') == 'zhuyin' => zhuyin(r),
+        _ => pinyinMarks(r),
+      };
+
+  void _fill(_Hit h) => setState(() {
+        pron.text = _reading(h.reading);
+        meaning.text = h.senses.first.replaceFirst(RegExp(r'^\((bound form|literary|coll\.)\)\s*'), '');
+      });
 
   String get _lang => detectLang(term.text, fallback: widget.deck.language);
 
@@ -51,12 +95,14 @@ class _NoteEditorState extends State<NoteEditor> {
     }
   }
 
-  Widget _field(TextEditingController c, String label, {String? lang, int lines = 1, bool autofocus = false}) =>
+  Widget _field(TextEditingController c, String label,
+          {String? lang, int lines = 1, bool autofocus = false, ValueChanged<String>? onChanged}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
           controller: c,
           autofocus: autofocus,
+          onChanged: onChanged,
           minLines: lines,
           maxLines: lines == 1 ? 1 : 6,
           style: ts(17, lang: lang),
@@ -86,7 +132,7 @@ class _NoteEditorState extends State<NoteEditor> {
             controller: term,
             autofocus: n == null,
             style: ts(28, w: 600, lang: _lang),
-            onChanged: (_) => setState(() => _error = null),
+            onChanged: _termChanged,
             decoration: InputDecoration(
               labelText: 'Word',
               errorText: _error,
@@ -94,14 +140,44 @@ class _NoteEditorState extends State<NoteEditor> {
                 _LangChip(_lang),
                 IconButton(
                   tooltip: 'Play',
-                  icon: const Icon(Icons.volume_up_outlined, color: C.accent, size: 20),
+                  icon: Icon(Icons.volume_up_outlined, color: C.accent, size: 20),
                   onPressed: () => speak(term.text, _lang),
                 ),
               ]),
             ),
           ),
-          const SizedBox(height: 12),
-          _field(pron, widget.deck.language == 'zh-Hant' ? 'Pronunciation (zhuyin)' : 'Pronunciation', lang: _lang),
+          if (term.text.trim().isNotEmpty && pron.text.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Center(child: RubyText(term.text.trim(), pron.text, _lang, size: 40)),
+            ),
+          if (_hits.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Group(header: 'Dictionary', children: [
+              for (final h in _hits.take(4))
+                InkWell(
+                  onTap: () => _fill(h),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${h.term}  ${_reading(h.reading)}', style: ts(16, lang: _lang)),
+                      Text(h.senses.take(2).join('; '), style: T.footnote, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                ),
+            ]),
+          ] else if (!Sync.connected && _lang.startsWith(RegExp('ja|zh')) && term.text.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 4),
+              child: Text('Connect sync to autofill from the dictionary.', style: T.caption),
+            ),
+          const SizedBox(height: 16),
+          _field(
+            pron,
+            _lang == 'zh-Hant' ? 'Pronunciation (${pref('zhPron', 'zhuyin')})' : 'Pronunciation',
+            lang: _lang,
+            onChanged: (_) => setState(() {}),
+          ),
           _field(meaning, 'English'),
           _field(expl, 'Explanation', lines: 2),
           _field(example, 'Usage example', lang: _lang, lines: 2),

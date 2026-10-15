@@ -4,6 +4,7 @@ import 'db.dart';
 import 'deck.dart';
 import 'lang.dart';
 import 'profile.dart';
+import 'reminders.dart';
 import 'stats_page.dart';
 import 'sync.dart';
 import 'theme.dart';
@@ -13,12 +14,52 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   Sync.start();
   listenPrefs();
-  runApp(MaterialApp(
-    title: 'Saguki',
-    debugShowCheckedModeBanner: false,
-    theme: buildTheme(),
-    home: const Shell(),
-  ));
+  startReminders();
+  runApp(const SagukiApp());
+}
+
+class SagukiApp extends StatefulWidget {
+  const SagukiApp({super.key});
+
+  @override
+  State<SagukiApp> createState() => _SagukiAppState();
+}
+
+class _SagukiAppState extends State<SagukiApp> {
+  Color? _accent = accentPick;
+
+  @override
+  void initState() {
+    super.initState();
+    prefs.addListener(_onPrefs);
+  }
+
+  @override
+  void dispose() {
+    prefs.removeListener(_onPrefs);
+    super.dispose();
+  }
+
+  /// Accent changed: rebuild the theme, and every element too, since const
+  /// widgets don't rebuild with their parent and read C.accent directly.
+  void _onPrefs() {
+    if (accentPick == _accent) return;
+    setState(() => _accent = accentPick);
+    void mark(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(mark);
+    }
+
+    (context as Element).visitChildren(mark);
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'Saguki',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(),
+        home: const Shell(),
+      );
 }
 
 /// Today / Stats / Profile: a rail on wide windows, a bottom bar on phones.
@@ -51,7 +92,7 @@ class _ShellState extends State<Shell> {
               labelType: NavigationRailLabelType.all,
               backgroundColor: C.bg,
               indicatorColor: C.accentContainer,
-              selectedIconTheme: const IconThemeData(color: C.accent),
+              selectedIconTheme: IconThemeData(color: C.accent),
               unselectedIconTheme: const IconThemeData(color: C.text3),
               selectedLabelTextStyle: ts(12, w: 600, color: C.accent),
               unselectedLabelTextStyle: T.caption,
@@ -104,38 +145,48 @@ class Home extends StatelessWidget {
         body: SafeArea(
           child: StreamBuilder(
             stream: db.watchDecks(),
-            builder: (context, snap) {
-              final decks = snap.data ?? [];
-              final due = decks.fold(0, (a, d) => a + d.due), fresh = decks.fold(0, (a, d) => a + d.fresh);
-              return PageBody(children: [
-                Row(children: [
-                  Expanded(child: Text('Today', style: T.largeTitle)),
-                  const _SyncButton(),
-                  IconButton(
-                    tooltip: 'New deck',
-                    icon: const Icon(Icons.add, color: C.accent),
-                    onPressed: () => editDeck(context),
-                  ),
-                  PopupMenuButton(
-                    tooltip: 'More',
-                    icon: const Icon(Icons.more_horiz, color: C.accent),
-                    itemBuilder: (_) => [
-                      PopupMenuItem(onTap: () => importFile(context), child: const Text('Import Anki or Saguki file…')),
-                      PopupMenuItem(onTap: () => exportFile(context), child: const Text('Export everything (.sgki)')),
-                    ],
-                  ),
-                ]),
-                Text(decks.isEmpty ? 'No decks yet' : '$due due · $fresh new', style: T.subhead),
-                const SizedBox(height: 28),
-                if (snap.hasData && decks.isEmpty)
-                  _Empty(onCreate: () => editDeck(context))
-                else if (decks.isNotEmpty)
-                  Group(header: 'Decks', children: [for (final d in decks) _DeckRow(d)]),
-              ]);
-            },
+            builder: (context, snap) => ValueListenableBuilder(
+              valueListenable: prefs,
+              builder: (context, _, _) => _decks(context, snap),
+            ),
           ),
         ),
       );
+
+  Widget _decks(BuildContext context, AsyncSnapshot<List<DeckWithCounts>> snap) {
+    final all = snap.data ?? [];
+    final langs = {for (final d in all) d.deck.language}.toList()..sort();
+    final f = langs.length > 1 && langs.contains(langFilter) ? langFilter : null;
+    final decks = [for (final d in all) if (f == null || d.deck.language == f) d];
+    final due = decks.fold(0, (a, d) => a + d.due), fresh = decks.fold(0, (a, d) => a + d.fresh);
+    return PageBody(children: [
+      Row(children: [
+        Expanded(child: Text('Today', style: T.largeTitle)),
+        const _SyncButton(),
+        IconButton(
+          tooltip: 'New deck',
+          icon: Icon(Icons.add, color: C.accent),
+          onPressed: () => editDeck(context),
+        ),
+        PopupMenuButton(
+          tooltip: 'More',
+          icon: Icon(Icons.more_horiz, color: C.accent),
+          itemBuilder: (_) => [
+            PopupMenuItem(onTap: () => importFile(context), child: const Text('Import Anki or Saguki file…')),
+            PopupMenuItem(onTap: () => exportFile(context), child: const Text('Export everything (.sgki)')),
+          ],
+        ),
+      ]),
+      Text(all.isEmpty ? 'No decks yet' : '$due due · $fresh new', style: T.subhead),
+      const SizedBox(height: 20),
+      LangPills(langs),
+      const SizedBox(height: 8),
+      if (snap.hasData && all.isEmpty)
+        _Empty(onCreate: () => editDeck(context))
+      else if (decks.isNotEmpty)
+        Group(header: 'Decks', children: [for (final d in decks) _DeckRow(d)]),
+    ]);
+  }
 }
 
 class _DeckRow extends StatelessWidget {
@@ -230,6 +281,7 @@ class SyncDialog extends StatefulWidget {
 
 class SyncDialogState extends State<SyncDialog> {
   final _url = TextEditingController(text: Sync.server);
+  final _user = TextEditingController(text: Sync.user);
   final _pw = TextEditingController();
   String? _error;
   bool _busy = false;
@@ -240,7 +292,7 @@ class SyncDialogState extends State<SyncDialog> {
       _busy = true;
       _error = null;
     });
-    final err = await Sync.connect(_url.text, _pw.text);
+    final err = await Sync.connect(_url.text, _user.text, _pw.text);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -257,7 +309,10 @@ class SyncDialogState extends State<SyncDialog> {
             width: 380,
             child: Sync.connected
                 ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(Uri.tryParse(Sync.server ?? '')?.host ?? '', style: T.body),
+                    Text(
+                      [Uri.tryParse(Sync.server ?? '')?.host ?? '', ?Sync.user].join(' · '),
+                      style: T.body,
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       switch (s.state) {
@@ -275,6 +330,12 @@ class SyncDialogState extends State<SyncDialog> {
                       controller: _url,
                       decoration: const InputDecoration(labelText: 'Server', hintText: 'saguki.example.com'),
                       keyboardType: TextInputType.url,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _user,
+                      autocorrect: false,
+                      decoration: const InputDecoration(labelText: 'Username', hintText: 'Leave empty if it’s your server'),
                     ),
                     const SizedBox(height: 12),
                     TextField(

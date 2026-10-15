@@ -5,9 +5,9 @@ import 'package:drift/drift.dart';
 
 import 'db.dart';
 
-/// Day key with the 4 am rollover, as SQLite computes it: 'YYYY-MM-DD'.
-String dayKey(DateTime t) => t.subtract(const Duration(hours: 4)).toIso8601String().substring(0, 10);
-const _sqlDay = "date(l.reviewed_at - 14400, 'unixepoch', 'localtime')";
+/// Day key with the day rollover applied, as SQLite computes it: 'YYYY-MM-DD'.
+String dayKey(DateTime t) => t.subtract(Duration(hours: rolloverHour)).toIso8601String().substring(0, 10);
+String get _sqlDay => "date(l.reviewed_at - ${rolloverHour * 3600}, 'unixepoch', 'localtime')";
 
 class Stats {
   Stats({
@@ -107,9 +107,9 @@ Future<Stats> loadStats({String? lang}) async {
   final forecast = List.filled(30, 0);
   final today = DateTime.parse(dayKey(now));
   for (final r in await q(
-    "SELECT date(MAX(c.due, ?2) - 14400, 'unixepoch', 'localtime') AS day, COUNT(*) AS n $cardJoin "
+    "SELECT date(MAX(c.due, ?2) - ${rolloverHour * 3600}, 'unixepoch', 'localtime') AS day, COUNT(*) AS n $cardJoin "
     'AND c.reps > 0 AND c.due < ?3 GROUP BY day',
-    [secs(now), secs(today.add(const Duration(days: 30, hours: 4)))],
+    [secs(now), secs(today.add(Duration(days: 30, hours: rolloverHour)))],
   )) {
     final i = DateTime.parse(r.read<String>('day')).difference(today).inHours ~/ 24;
     if (i >= 0 && i < 30) forecast[i] += r.read<int>('n');
@@ -162,10 +162,10 @@ Future<Stats> loadStats({String? lang}) async {
   );
 }
 
-/// Reloads whenever cards or reviews change (local edits and sync pulls).
+/// Reloads whenever cards, reviews or settings change (local edits and sync pulls).
 Stream<Stats> watchStats({String? lang}) async* {
   yield await loadStats(lang: lang);
-  await for (final _ in db.tableUpdates(TableUpdateQuery.onAllTables([db.reviewLogs, db.cards, db.decks]))) {
+  await for (final _ in db.tableUpdates(TableUpdateQuery.onAllTables([db.reviewLogs, db.cards, db.decks, db.prefs]))) {
     yield await loadStats(lang: lang);
   }
 }

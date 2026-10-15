@@ -62,6 +62,7 @@ class ReviewLogs extends Table {
   DateTimeColumn get reviewedAt => dateTime()();
   IntColumn get durationMs => integer()();
   BoolColumn get wasNew => boolean()();
+  IntColumn get thinkMs => integer().nullable()(); // shown → revealed; drives swipe auto-grading
   BoolColumn get dirty => boolean().withDefault(const Constant(true))();
   @override
   Set<Column> get primaryKey => {id};
@@ -80,10 +81,12 @@ class DeckWithCounts {
 
 typedef Study = ({Card card, Note note});
 
-/// Day rolls over at 4 am, like Anki.
+/// Hour the study day starts (Profile; default 4 am, like Anki).
+int rolloverHour = 4;
+
 DateTime dayStart([DateTime? now]) {
   now ??= DateTime.now();
-  final d = DateTime(now.year, now.month, now.day, 4);
+  final d = DateTime(now.year, now.month, now.day, rolloverHour);
   return now.isBefore(d) ? d.subtract(const Duration(days: 1)) : d;
 }
 
@@ -92,7 +95,7 @@ class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'saguki'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,6 +110,7 @@ class AppDb extends _$AppDb {
             }
           }
           if (from < 4) await m.createTable(prefs);
+          if (from < 5) await m.addColumn(reviewLogs, reviewLogs.thinkMs);
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
@@ -172,6 +176,19 @@ class AppDb extends _$AppDb {
               DeckWithCounts(d, r.read<int>('due_n'),
                   r.read<int>('new_n').clamp(0, (d.newPerDay - r.read<int>('new_done')).clamp(0, 9999))),
         ]);
+  }
+
+  /// Reviews due by [at] plus new cards the daily limits allow (for the reminder text).
+  Future<({int due, int fresh})> workAt(DateTime at) async {
+    final r = await customSelect(
+      'SELECT (SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id JOIN decks d ON d.id = n.deck_id '
+      '  WHERE $_live AND d.deleted = 0 AND c.reps > 0 AND c.due <= ?) AS due, '
+      '(SELECT COALESCE(SUM(MIN(x.n, x.lim)), 0) FROM (SELECT COUNT(*) AS n, d.new_per_day AS lim FROM cards c '
+      '  JOIN notes n ON n.id = c.note_id JOIN decks d ON d.id = n.deck_id '
+      '  WHERE $_live AND d.deleted = 0 AND c.reps = 0 GROUP BY d.id) x) AS fresh',
+      variables: [Variable(at)],
+    ).getSingle();
+    return (due: r.read<int>('due'), fresh: r.read<int>('fresh'));
   }
 
   Stream<List<Note>> watchNotes(String deckId, String query) {

@@ -36,6 +36,24 @@ The API listens on `127.0.0.1:8787` (`API_PORT` in `.env`), and nginx serves it 
 | Revoke a device | `docker compose exec db psql -U saguki saguki -c "DELETE FROM devices WHERE name LIKE 'android%'"` |
 | End-to-end check from your PC | `bash server/test/smoke.sh https://saguki.example.com <app password>` |
 
+## Accounts (giving a friend access)
+
+Each account gets its own synced collection. You're the owner: your username is
+`SAGUKI_OWNER` (default `owner`) and your password is `SAGUKI_PASSWORD`. In the app you can
+leave the username empty. Everything synced before accounts existed belongs to you.
+
+Run these on the VPS from `/opt/saguki/deploy`:
+
+| | |
+|---|---|
+| Add a friend (prints their password) | `sudo docker compose exec api /server adduser alex` |
+| New password (signs out their devices) | `sudo docker compose exec api /server passwd alex` |
+| Delete them and all their cards | `sudo docker compose exec api /server deluser alex` |
+| List accounts | `sudo docker compose exec api /server users` |
+
+Your friend installs the app from `/download` or `/download/windows`, then goes to
+Profile → Sync and enters the server URL, their username and that password.
+
 ## Profile pictures (Cloudflare R2)
 
 The app sends a 256 px PNG to `POST /avatar`. The server uploads it to R2 as
@@ -44,3 +62,12 @@ Until it's set up, uploads return 503 and the app falls back to an emoji or init
 
 1. In Cloudflare, go to R2 → Manage API tokens → Create token. Give it **Object Read & Write**, limited to the bucket.
 2. On the VPS, add `R2_ACCOUNT_ID`, `R2_TOKEN` (or `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY`), `R2_BUCKET` and `R2_PUBLIC_URL` to `/opt/saguki/deploy/.env` (see `.env.example`), then run `sudo systemctl restart saguki`.
+
+## App downloads
+
+CI uploads the latest builds to `/opt/saguki/apk/`, and the server makes them available here:
+
+- `https://<domain>/download` serves the Android APK. It's built by `.github/workflows/apk.yml`.
+- `https://<domain>/download/windows` serves the Windows installer, a per-user install that needs no admin rights. It's built by `.github/workflows/windows.yml`.
+
+The builds aren't signed with a code-signing certificate, so Windows SmartScreen warns the first time you run the installer. Choose More info → Run anyway.

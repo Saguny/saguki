@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -5,6 +8,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'db.dart';
 import 'lang.dart';
 import 'profile.dart';
+import 'pron.dart';
 import 'srs.dart';
 import 'theme.dart';
 
@@ -30,13 +34,20 @@ class ReviewPage extends StatefulWidget {
   State<ReviewPage> createState() => _ReviewPageState();
 }
 
-class _ReviewPageState extends State<ReviewPage> {
+class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   Study? _cur;
   bool _revealed = false, _done = false;
   int _left = 0, _reviewed = 0;
   List<Duration> _next = const [];
   ({Card before, String logId})? _last;
   final _watch = Stopwatch();
+  int? _baseline; // your usual think time, for swipe auto-grading
+  int _thinkMs = 0;
+  double _dx = 0; // swipe offset
+  bool _dragging = false, _busy = false;
+  // Flip: a quick 3D turn that swaps faces at the midpoint. Enter: the next card pops in.
+  late final _flip = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
+  late final _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 200), value: 1);
 
   Deck get deck => widget.deck;
 
@@ -44,7 +55,18 @@ class _ReviewPageState extends State<ReviewPage> {
   void initState() {
     super.initState();
     _load();
+    thinkBaseline(deck.language).then((b) => _baseline = b);
   }
+
+  @override
+  void dispose() {
+    _flip.dispose();
+    _enter.dispose();
+    super.dispose();
+  }
+
+  /// What a right swipe (or →) records for the current card.
+  int get _swipeGrade => _cur == null ? 3 : autoGrade(_cur!.card, _thinkMs, _baseline);
 
   Future<void> _load() async {
     final cur = await db.nextCard(deck), left = await db.remaining(deck);
@@ -53,7 +75,11 @@ class _ReviewPageState extends State<ReviewPage> {
       _done = cur == null;
       _left = left;
       _revealed = false;
+      _dx = 0;
+      _dragging = false;
+      _flip.value = 1;
     });
+    if (cur != null) _enter.forward(from: 0);
     _watch
       ..reset()
       ..start();
@@ -62,21 +88,28 @@ class _ReviewPageState extends State<ReviewPage> {
   void _reveal() {
     final c = _cur;
     if (c == null || _revealed) return;
+    _thinkMs = _watch.elapsedMilliseconds;
     setState(() {
       _revealed = true;
       _next = preview(deck, c.card);
     });
+    _flip.forward(from: 0);
     if (prefOn('autoPlay')) speak(c.note.term, _lang(c.note));
   }
 
   Future<void> _rate(int rating) async {
     final c = _cur;
-    if (c == null || !_revealed) return;
+    if (c == null || !_revealed || _busy) return;
+    _busy = true;
     HapticFeedback.selectionClick();
-    final logId = await answer(deck, c.card, rating, _watch.elapsedMilliseconds.clamp(0, 60000));
-    _last = (before: c.card, logId: logId);
-    _reviewed++;
-    await _load();
+    try {
+      final logId = await answer(deck, c.card, rating, _watch.elapsedMilliseconds.clamp(0, 60000), thinkMs: _thinkMs);
+      _last = (before: c.card, logId: logId);
+      _reviewed++;
+      await _load();
+    } finally {
+      _busy = false;
+    }
   }
 
   Future<void> _undo() async {
@@ -93,7 +126,14 @@ class _ReviewPageState extends State<ReviewPage> {
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
-    if (k == LogicalKeyboardKey.space || k == LogicalKeyboardKey.enter) {
+    if (k == LogicalKeyboardKey.space) {
+      if (_revealed) {
+        setState(() => _revealed = false); // flip back to the question
+        _flip.forward(from: 0);
+      } else {
+        _reveal();
+      }
+    } else if (k == LogicalKeyboardKey.enter) {
       _revealed ? _rate(3) : _reveal();
     } else if (k == LogicalKeyboardKey.digit1 || k == LogicalKeyboardKey.numpad1) {
       _rate(1);
@@ -103,6 +143,10 @@ class _ReviewPageState extends State<ReviewPage> {
       _rate(3);
     } else if (k == LogicalKeyboardKey.digit4 || k == LogicalKeyboardKey.numpad4) {
       _rate(4);
+    } else if (k == LogicalKeyboardKey.arrowLeft) {
+      _rate(1);
+    } else if (k == LogicalKeyboardKey.arrowRight) {
+      _rate(_swipeGrade);
     } else if (k == LogicalKeyboardKey.keyZ) {
       _undo();
     } else if (k == LogicalKeyboardKey.escape) {
@@ -163,11 +207,7 @@ class _ReviewPageState extends State<ReviewPage> {
                   ? _Finished(reviewed: _reviewed)
                   : _cur == null
                       ? const SizedBox()
-                      : GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _reveal,
-                          child: _CardView(_cur!.note, _lang(_cur!.note), revealed: _revealed),
-                        ),
+                      : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth)),
             ),
             if (!_done) SizedBox(height: 76, child: _revealed ? _buttons() : _hint()),
           ]),
@@ -176,7 +216,99 @@ class _ReviewPageState extends State<ReviewPage> {
     );
   }
 
-  Widget _hint() => Center(child: Text('Tap or press Space to reveal', style: T.caption));
+  Widget _animatedCard() => AnimatedBuilder(
+        animation: Listenable.merge([_flip, _enter]),
+        builder: (context, _) {
+          final t = Curves.easeInOut.transform(_flip.value);
+          final face = _flip.value < 0.5 ? !_revealed : _revealed; // faces swap edge-on
+          final pop = Curves.easeOutBack.transform(_enter.value);
+          return Opacity(
+            opacity: _enter.value,
+            child: Transform.scale(
+              scale: (0.94 + 0.06 * pop) * (1 + 0.06 * sin(pi * t)), // lifts slightly mid-turn
+              child: Transform(
+                alignment: Alignment.center,
+                // Never past 90°, so the text is never mirrored.
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0015)
+                  ..rotateY((t < 0.5 ? t : t - 1) * pi),
+                child: _CardView(_cur!.note, _lang(_cur!.note), revealed: face),
+              ),
+            ),
+          );
+        },
+      );
+
+  Widget _hint() => Center(
+        child: Text(
+            Platform.isAndroid || Platform.isIOS
+                ? 'Tap to reveal\nthen swipe ← forgot · remembered →'
+                : 'Space to flip\nthen ← forgot · remembered →',
+            style: T.caption, textAlign: TextAlign.center),
+      );
+
+  /// Card that follows the finger once revealed: past a quarter of the width (or flung), left
+  /// records Again and right records the auto grade, which the label shows before you let go.
+  Widget _swipeable(double w) {
+    final grade = _swipeGrade;
+    final left = _dx < 0;
+    final (name, color) = left ? _ratings[0] : _ratings[grade - 1];
+    final interval = _next.length == 4 ? ' · ${fmtInterval(_next[left ? 0 : grade - 1])}' : '';
+    final anim = _dragging ? Duration.zero : const Duration(milliseconds: 180);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _reveal,
+      onHorizontalDragUpdate: !_revealed ? null : (d) => setState(() {
+            _dragging = true;
+            _dx += d.delta.dx;
+          }),
+      onHorizontalDragEnd: !_revealed
+          ? null
+          : (d) {
+              final v = d.velocity.pixelsPerSecond.dx;
+              // Read _dx here, not the build-time values: a quick flick can end before a rebuild.
+              if (_dx.abs() > w * 0.25 || (v.abs() > 800 && v.sign == _dx.sign)) {
+                _rate(_dx < 0 ? 1 : _swipeGrade);
+              } else {
+                setState(() {
+                  _dragging = false;
+                  _dx = 0;
+                });
+              }
+            },
+      child: Stack(children: [
+        Positioned.fill(
+          child: AnimatedSlide(
+            offset: Offset(_dx / w, 0),
+            duration: anim,
+            curve: Curves.easeOut,
+            child: AnimatedRotation(
+              turns: _dx / w * 0.04,
+              duration: anim,
+              child: _animatedCard(),
+            ),
+          ),
+        ),
+        if (_dx != 0)
+          Align(
+            alignment: Alignment.topCenter,
+            child: Opacity(
+              opacity: (_dx.abs() / (w * 0.25)).clamp(0.0, 1.0),
+              child: Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: C.surface2,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color),
+                ),
+                child: Text('$name$interval', style: ts(15, w: 600, color: color)),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
 
   Widget _buttons() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -197,6 +329,34 @@ class _ReviewPageState extends State<ReviewPage> {
       );
 }
 
+/// Word with its reading above each part: furigana, zhuyin or pinyin.
+/// Hidden readings still take their space so nothing jumps on reveal.
+class RubyText extends StatelessWidget {
+  const RubyText(this.term, this.pron, this.lang, {super.key, required this.size, this.showRuby = true});
+  final String term, pron, lang;
+  final double size;
+  final bool showRuby;
+
+  @override
+  Widget build(BuildContext context) {
+    final rubyStyle = ts(max(12, size * 0.3), color: C.text2, lang: lang);
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.end,
+      children: [
+        for (final s in rubySegments(term, pron, lang))
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            Visibility.maintain(
+              visible: showRuby && s.ruby != null,
+              child: Text(s.ruby ?? ' ', style: rubyStyle, textAlign: TextAlign.center),
+            ),
+            Text(s.base, style: ts(size, w: 600, lang: lang, height: 1.15), textAlign: TextAlign.center),
+          ]),
+      ],
+    );
+  }
+}
+
 class _CardView extends StatelessWidget {
   const _CardView(this.n, this.lang, {required this.revealed});
   final Note n;
@@ -212,14 +372,7 @@ class _CardView extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Reserve the pronunciation line so the word never jumps on reveal.
-            Visibility.maintain(
-              visible: revealed && n.pronunciation.isNotEmpty,
-              child: Text(n.pronunciation.isEmpty ? ' ' : n.pronunciation,
-                  style: ts(wide ? 22 : 18, color: C.text2, lang: lang), textAlign: TextAlign.center),
-            ),
-            const SizedBox(height: 4),
-            Text(n.term, style: ts((wide ? 72 : 56) * prefNum('cardScale', 1), w: 600, lang: lang, height: 1.15), textAlign: TextAlign.center),
+            RubyText(n.term, n.pronunciation, lang, size: (wide ? 72 : 56) * prefNum('cardScale', 1), showRuby: revealed),
             if (revealed) ...[
               if (n.meaning.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -267,7 +420,7 @@ class _Finished extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.check_circle_outline, color: C.accent, size: 40),
+          Icon(Icons.check_circle_outline, color: C.accent, size: 40),
           const SizedBox(height: 12),
           Text('All done', style: T.title2),
           const SizedBox(height: 4),

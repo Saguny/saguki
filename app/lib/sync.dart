@@ -30,6 +30,7 @@ class Sync {
   static AppLifecycleListener? _life;
 
   static String? get server => _cfg['url'];
+  static String? get user => _cfg['user'];
   static bool get connected => _cfg['token'] != null;
 
   // ponytail: token in a plain file in app-private storage; move to flutter_secure_storage if devices are shared.
@@ -74,19 +75,29 @@ class Sync {
     run();
   }
 
-  /// Returns an error message, or null on success.
-  static Future<String?> connect(String url, String password) async {
+  /// Returns an error message, or null on success. Empty [user] = the server's owner.
+  static Future<String?> connect(String url, String user, String password) async {
     url = url.trim().replaceAll(RegExp(r'/+$'), '');
     if (!url.startsWith('https://') && !url.startsWith('http://')) url = 'https://$url';
     try {
       final r = await http
           .post(Uri.parse('$url/login'),
               headers: {'content-type': 'application/json'},
-              body: jsonEncode({'password': password, 'device': '${Platform.operatingSystem} · ${Platform.localHostname}'}))
+              body: jsonEncode({
+                if (user.trim().isNotEmpty) 'user': user.trim(),
+                'password': password,
+                'device': '${Platform.operatingSystem} · ${Platform.localHostname}',
+              }))
           .timeout(const Duration(seconds: 15));
-      if (r.statusCode == 401) return 'Wrong password';
+      if (r.statusCode == 401) return 'Wrong username or password';
       if (r.statusCode != 200) return 'Server answered ${r.statusCode}';
-      _cfg = {'url': url, 'token': jsonDecode(r.body)['token'], 'cursor': 0};
+      final res = jsonDecode(r.body), who = res['user'] as String?, last = _cfg['lastUser'] as String?;
+      // Connecting pushes everything on this device, so never pour one person's cards into another's account.
+      if (last != null && who != null && who != last &&
+          (await db.customSelect('SELECT 1 FROM decks WHERE deleted = 0 LIMIT 1').get()).isNotEmpty) {
+        return 'This device holds $last’s cards. Connect as $last, or delete its decks first.';
+      }
+      _cfg = {'url': url, 'token': res['token'], 'cursor': 0, 'user': ?who};
     } catch (e) {
       return 'Couldn’t reach $url';
     }
@@ -111,8 +122,24 @@ class Sync {
     return jsonDecode(r.body)['url'];
   }
 
+  /// Dictionary lookup on the server (JMdict / CC-CEDICT). Empty when offline or not connected.
+  static Future<List<({String term, String reading, List<String> senses})>> lookup(String q, String lang) async {
+    if (!connected) return const [];
+    try {
+      final r = await http.get(Uri.parse('${_cfg['url']}/dict').replace(queryParameters: {'q': q, 'lang': lang}),
+          headers: {'authorization': 'Bearer ${_cfg['token']}'}).timeout(const Duration(seconds: 8));
+      if (r.statusCode != 200) return const [];
+      return [
+        for (final e in jsonDecode(r.body)['entries'])
+          (term: e['term'] as String, reading: e['reading'] as String, senses: (e['senses'] as List).cast<String>()),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   static Future<void> disconnect() async {
-    _cfg = {};
+    _cfg = {'lastUser': ?(_cfg['user'] ?? _cfg['lastUser'])};
     await _save();
     status.value = const SyncStatus(SyncState.off);
   }

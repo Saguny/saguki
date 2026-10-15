@@ -2146,6 +2146,17 @@ class $ReviewLogsTable extends ReviewLogs
       'CHECK ("was_new" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _thinkMsMeta = const VerificationMeta(
+    'thinkMs',
+  );
+  @override
+  late final GeneratedColumn<int> thinkMs = GeneratedColumn<int>(
+    'think_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
   @override
   late final GeneratedColumn<bool> dirty = GeneratedColumn<bool>(
@@ -2169,6 +2180,7 @@ class $ReviewLogsTable extends ReviewLogs
     reviewedAt,
     durationMs,
     wasNew,
+    thinkMs,
     dirty,
   ];
   @override
@@ -2238,6 +2250,12 @@ class $ReviewLogsTable extends ReviewLogs
     } else if (isInserting) {
       context.missing(_wasNewMeta);
     }
+    if (data.containsKey('think_ms')) {
+      context.handle(
+        _thinkMsMeta,
+        thinkMs.isAcceptableOrUnknown(data['think_ms']!, _thinkMsMeta),
+      );
+    }
     if (data.containsKey('dirty')) {
       context.handle(
         _dirtyMeta,
@@ -2285,6 +2303,10 @@ class $ReviewLogsTable extends ReviewLogs
         DriftSqlType.bool,
         data['${effectivePrefix}was_new'],
       )!,
+      thinkMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}think_ms'],
+      ),
       dirty: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}dirty'],
@@ -2307,6 +2329,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
   final DateTime reviewedAt;
   final int durationMs;
   final bool wasNew;
+  final int? thinkMs;
   final bool dirty;
   const ReviewLog({
     required this.id,
@@ -2317,6 +2340,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     required this.reviewedAt,
     required this.durationMs,
     required this.wasNew,
+    this.thinkMs,
     required this.dirty,
   });
   @override
@@ -2330,6 +2354,9 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     map['reviewed_at'] = Variable<DateTime>(reviewedAt);
     map['duration_ms'] = Variable<int>(durationMs);
     map['was_new'] = Variable<bool>(wasNew);
+    if (!nullToAbsent || thinkMs != null) {
+      map['think_ms'] = Variable<int>(thinkMs);
+    }
     map['dirty'] = Variable<bool>(dirty);
     return map;
   }
@@ -2344,6 +2371,9 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       reviewedAt: Value(reviewedAt),
       durationMs: Value(durationMs),
       wasNew: Value(wasNew),
+      thinkMs: thinkMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thinkMs),
       dirty: Value(dirty),
     );
   }
@@ -2362,6 +2392,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       reviewedAt: serializer.fromJson<DateTime>(json['reviewedAt']),
       durationMs: serializer.fromJson<int>(json['durationMs']),
       wasNew: serializer.fromJson<bool>(json['wasNew']),
+      thinkMs: serializer.fromJson<int?>(json['thinkMs']),
       dirty: serializer.fromJson<bool>(json['dirty']),
     );
   }
@@ -2377,6 +2408,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       'reviewedAt': serializer.toJson<DateTime>(reviewedAt),
       'durationMs': serializer.toJson<int>(durationMs),
       'wasNew': serializer.toJson<bool>(wasNew),
+      'thinkMs': serializer.toJson<int?>(thinkMs),
       'dirty': serializer.toJson<bool>(dirty),
     };
   }
@@ -2390,6 +2422,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     DateTime? reviewedAt,
     int? durationMs,
     bool? wasNew,
+    Value<int?> thinkMs = const Value.absent(),
     bool? dirty,
   }) => ReviewLog(
     id: id ?? this.id,
@@ -2400,6 +2433,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     reviewedAt: reviewedAt ?? this.reviewedAt,
     durationMs: durationMs ?? this.durationMs,
     wasNew: wasNew ?? this.wasNew,
+    thinkMs: thinkMs.present ? thinkMs.value : this.thinkMs,
     dirty: dirty ?? this.dirty,
   );
   ReviewLog copyWithCompanion(ReviewLogsCompanion data) {
@@ -2418,6 +2452,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           ? data.durationMs.value
           : this.durationMs,
       wasNew: data.wasNew.present ? data.wasNew.value : this.wasNew,
+      thinkMs: data.thinkMs.present ? data.thinkMs.value : this.thinkMs,
       dirty: data.dirty.present ? data.dirty.value : this.dirty,
     );
   }
@@ -2433,6 +2468,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           ..write('reviewedAt: $reviewedAt, ')
           ..write('durationMs: $durationMs, ')
           ..write('wasNew: $wasNew, ')
+          ..write('thinkMs: $thinkMs, ')
           ..write('dirty: $dirty')
           ..write(')'))
         .toString();
@@ -2448,6 +2484,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     reviewedAt,
     durationMs,
     wasNew,
+    thinkMs,
     dirty,
   );
   @override
@@ -2462,6 +2499,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           other.reviewedAt == this.reviewedAt &&
           other.durationMs == this.durationMs &&
           other.wasNew == this.wasNew &&
+          other.thinkMs == this.thinkMs &&
           other.dirty == this.dirty);
 }
 
@@ -2474,6 +2512,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
   final Value<DateTime> reviewedAt;
   final Value<int> durationMs;
   final Value<bool> wasNew;
+  final Value<int?> thinkMs;
   final Value<bool> dirty;
   final Value<int> rowid;
   const ReviewLogsCompanion({
@@ -2485,6 +2524,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     this.reviewedAt = const Value.absent(),
     this.durationMs = const Value.absent(),
     this.wasNew = const Value.absent(),
+    this.thinkMs = const Value.absent(),
     this.dirty = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2497,6 +2537,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     required DateTime reviewedAt,
     required int durationMs,
     required bool wasNew,
+    this.thinkMs = const Value.absent(),
     this.dirty = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : cardId = Value(cardId),
@@ -2513,6 +2554,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     Expression<DateTime>? reviewedAt,
     Expression<int>? durationMs,
     Expression<bool>? wasNew,
+    Expression<int>? thinkMs,
     Expression<bool>? dirty,
     Expression<int>? rowid,
   }) {
@@ -2525,6 +2567,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
       if (reviewedAt != null) 'reviewed_at': reviewedAt,
       if (durationMs != null) 'duration_ms': durationMs,
       if (wasNew != null) 'was_new': wasNew,
+      if (thinkMs != null) 'think_ms': thinkMs,
       if (dirty != null) 'dirty': dirty,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2539,6 +2582,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     Value<DateTime>? reviewedAt,
     Value<int>? durationMs,
     Value<bool>? wasNew,
+    Value<int?>? thinkMs,
     Value<bool>? dirty,
     Value<int>? rowid,
   }) {
@@ -2551,6 +2595,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       durationMs: durationMs ?? this.durationMs,
       wasNew: wasNew ?? this.wasNew,
+      thinkMs: thinkMs ?? this.thinkMs,
       dirty: dirty ?? this.dirty,
       rowid: rowid ?? this.rowid,
     );
@@ -2583,6 +2628,9 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     if (wasNew.present) {
       map['was_new'] = Variable<bool>(wasNew.value);
     }
+    if (thinkMs.present) {
+      map['think_ms'] = Variable<int>(thinkMs.value);
+    }
     if (dirty.present) {
       map['dirty'] = Variable<bool>(dirty.value);
     }
@@ -2603,6 +2651,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
           ..write('reviewedAt: $reviewedAt, ')
           ..write('durationMs: $durationMs, ')
           ..write('wasNew: $wasNew, ')
+          ..write('thinkMs: $thinkMs, ')
           ..write('dirty: $dirty, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4465,6 +4514,7 @@ typedef $$ReviewLogsTableCreateCompanionBuilder = ReviewLogsCompanion Function({
   required DateTime reviewedAt,
   required int durationMs,
   required bool wasNew,
+  Value<int?> thinkMs,
   Value<bool> dirty,
   Value<int> rowid,
 });
@@ -4477,6 +4527,7 @@ typedef $$ReviewLogsTableUpdateCompanionBuilder = ReviewLogsCompanion Function({
   Value<DateTime> reviewedAt,
   Value<int> durationMs,
   Value<bool> wasNew,
+  Value<int?> thinkMs,
   Value<bool> dirty,
   Value<int> rowid,
 });
@@ -4544,6 +4595,11 @@ class $$ReviewLogsTableFilterComposer
 
   ColumnFilters<bool> get wasNew => $composableBuilder(
     column: $table.wasNew,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get thinkMs => $composableBuilder(
+    column: $table.thinkMs,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4620,6 +4676,11 @@ class $$ReviewLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get thinkMs => $composableBuilder(
+    column: $table.thinkMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get dirty => $composableBuilder(
     column: $table.dirty,
     builder: (column) => ColumnOrderings(column),
@@ -4685,6 +4746,9 @@ class $$ReviewLogsTableAnnotationComposer
   GeneratedColumn<bool> get wasNew =>
       $composableBuilder(column: $table.wasNew, builder: (column) => column);
 
+  GeneratedColumn<int> get thinkMs =>
+      $composableBuilder(column: $table.thinkMs, builder: (column) => column);
+
   GeneratedColumn<bool> get dirty =>
       $composableBuilder(column: $table.dirty, builder: (column) => column);
 
@@ -4748,6 +4812,7 @@ class $$ReviewLogsTableTableManager
                 Value<DateTime> reviewedAt = const Value.absent(),
                 Value<int> durationMs = const Value.absent(),
                 Value<bool> wasNew = const Value.absent(),
+                Value<int?> thinkMs = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewLogsCompanion(
@@ -4759,6 +4824,7 @@ class $$ReviewLogsTableTableManager
                 reviewedAt: reviewedAt,
                 durationMs: durationMs,
                 wasNew: wasNew,
+                thinkMs: thinkMs,
                 dirty: dirty,
                 rowid: rowid,
               ),
@@ -4772,6 +4838,7 @@ class $$ReviewLogsTableTableManager
                 required DateTime reviewedAt,
                 required int durationMs,
                 required bool wasNew,
+                Value<int?> thinkMs = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewLogsCompanion.insert(
@@ -4783,6 +4850,7 @@ class $$ReviewLogsTableTableManager
                 reviewedAt: reviewedAt,
                 durationMs: durationMs,
                 wasNew: wasNew,
+                thinkMs: thinkMs,
                 dirty: dirty,
                 rowid: rowid,
               ),
