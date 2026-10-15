@@ -5,6 +5,7 @@ import 'deck.dart';
 import 'lang.dart';
 import 'sync.dart';
 import 'theme.dart';
+import 'transfer_ui.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +51,14 @@ class Home extends StatelessWidget {
                     tooltip: 'New deck',
                     icon: const Icon(Icons.add, color: C.accent),
                     onPressed: () => editDeck(context),
+                  ),
+                  PopupMenuButton(
+                    tooltip: 'More',
+                    icon: const Icon(Icons.more_horiz, color: C.accent),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(onTap: () => importFile(context), child: const Text('Import Anki or Saguki file…')),
+                      PopupMenuItem(onTap: () => exportFile(context), child: const Text('Export everything (.saguki)')),
+                    ],
                   ),
                 ]),
                 Text(decks.isEmpty ? 'No decks yet' : '$due due · $fresh new', style: T.subhead),
@@ -107,6 +116,8 @@ class _Empty extends StatelessWidget {
           Text('One deck per language or topic works well.', style: T.subhead, textAlign: TextAlign.center),
           const SizedBox(height: 24),
           FilledButton(onPressed: onCreate, child: const Text('Create deck')),
+          const SizedBox(height: 8),
+          TextButton(onPressed: () => importFile(context), child: const Text('Import from Anki')),
         ]),
       );
 }

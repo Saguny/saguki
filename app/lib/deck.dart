@@ -7,6 +7,7 @@ import 'lang.dart';
 import 'main.dart' show PageBody;
 import 'review.dart';
 import 'theme.dart';
+import 'transfer_ui.dart';
 
 class DeckPage extends StatefulWidget {
   const DeckPage(this.deckId, {super.key});
@@ -37,6 +38,9 @@ class _DeckPageState extends State<DeckPage> {
                 icon: const Icon(Icons.more_horiz),
                 itemBuilder: (_) => [
                   PopupMenuItem(onTap: () => editDeck(context, deck), child: const Text('Edit deck')),
+                  PopupMenuItem(onTap: () => importCsvInto(context, deck), child: const Text('Import CSV/TSV…')),
+                  PopupMenuItem(onTap: () => exportFile(context, deck: deck), child: const Text('Export deck (.saguki)')),
+                  PopupMenuItem(onTap: () => exportFile(context, deck: deck, csv: true), child: const Text('Export deck (CSV)')),
                   PopupMenuItem(
                     onTap: () => _confirmDelete(context, deck),
                     child: Text('Delete deck', style: ts(16, color: C.again)),

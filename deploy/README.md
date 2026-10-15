@@ -5,9 +5,10 @@ The server runs as the systemd service `saguki`, which wraps `docker compose`. E
 ## One-time setup
 
 You need:
-- a VPS with **Docker** (including the compose plugin) and **rsync** installed
-- ports **80 and 443** open
+- a VPS with **Docker** (including the compose plugin), **rsync** and **nginx** installed
 - a DNS **A record** pointing your domain at the VPS
+
+The API listens on `127.0.0.1:8787` (`API_PORT` in `.env`), and nginx serves it publicly. On a VPS with no web server at all, you can use the bundled Caddy instead: add `--profile caddy` to the `docker compose` commands in the systemd unit and the workflow.
 
 1. Upload `deploy/setup-vps.sh` to the VPS, for example with Termius SFTP, and run:
    ```bash
@@ -16,7 +17,14 @@ You need:
    It prints the **app password**, which is what you'll enter in the apps. It also prints five values for GitHub.
 2. In GitHub, go to **Settings → Secrets and variables → Actions** and add `VPS_HOST`, `VPS_PORT`, `VPS_USER`, `VPS_KNOWN_HOSTS` and `VPS_SSH_KEY`, exactly as printed.
 3. Push to `main`, or go to **Actions → Deploy server → Run workflow**.
-4. In each app, tap the cloud icon on Today, enter `https://saguki.example.com` and the app password, then tap Connect.
+4. Install the nginx site and get its HTTPS certificate (the full commands are at the top of `deploy/nginx-saguki.conf`):
+   ```bash
+   sudo cp /opt/saguki/deploy/nginx-saguki.conf /etc/nginx/sites-available/saguki
+   sudo ln -s /etc/nginx/sites-available/saguki /etc/nginx/sites-enabled/saguki
+   sudo nginx -t && sudo systemctl reload nginx
+   sudo certbot --nginx -d saguki.off-by-one.digital
+   ```
+5. In each app, tap the cloud icon on Today, enter `https://saguki.example.com` and the app password, then tap Connect.
 
 ## Day to day
 | | |

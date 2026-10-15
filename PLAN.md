@@ -82,7 +82,13 @@ Language codes are BCP‑47: `ja`, `zh-Hant`, `zh-Hans`, `ko`, …
 | `.saguki` (zip of JSON, full fidelity incl. scheduling + review history) | ✅ | ✅ |
 | Anki `.apkg` | ✅ notes + fields mapped to our fields; review history converted | ❌ (skip, add if you actually need to go back to Anki) |
 
-Note on `.apkg`: modern Anki exports `collection.anki21b` (zstd-compressed). We either add a zstd decoder or tell you to tick “Support older Anki versions” when exporting. **Default: support both.**
+**As built in P2** (`app/lib/transfer.dart`):
+- **Anki package formats:** `.apkg` and `.colpkg` both work, in the legacy layout and the modern zstd-compressed `anki21b` one.
+- **Field mapping:** Anki fields are matched by name, for example Expression/Reading/Meaning/Sentence/Sentence-English. A note type nobody recognises falls back to field 1 as the word and field 2 as the meaning.
+- **Scheduling:** if a card already has FSRS memory state in Anki, it's reused. Otherwise its SM-2 interval and ease are converted. Review history carries over.
+- **Re-importing:** IDs come from Anki's, so importing the same deck again updates it instead of duplicating it.
+- **CSV:** columns are matched by header name (Word/English/Reading/…). Without a recognised header, columns are read in the export's order.
+- **Skipped for now:** media (images and audio), and Anki's extra card templates such as reverse cards. Only template 1 is imported. There's also no column-mapping screen yet.
 
 ---
 

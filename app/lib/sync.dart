@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -154,28 +153,15 @@ class Sync {
     final incoming = (res['changes'] as List).cast<Map<String, dynamic>>()
       ..sort((a, b) => _tables.indexOf(a['t']).compareTo(_tables.indexOf(b['t'])));
 
-    final cols = {for (final t in db.allTables) t.actualTableName: t.$columns.map((c) => c.name).toSet()};
     await db.transaction(() async {
       await db.customStatement('PRAGMA defer_foreign_keys = ON');
       for (final c in incoming) {
-        final t = c['t'] as String, known = cols[t];
-        if (known == null) continue;
-        final local = await db.customSelect('SELECT modified_at, dirty FROM $t WHERE id = ?', variables: [Variable(c['id'])]).getSingleOrNull();
+        final t = c['t'] as String;
+        final local = await db.localVersion(t, c['id']);
         // An unsynced local edit at least as new wins; it goes up on the next push.
-        if (local != null && local.read<int>('dirty') == 1 && local.read<int>('modified_at') >= (c['m'] as int)) continue;
-        final data = {
-          for (final e in (c['data'] as Map<String, dynamic>).entries)
-            if (known.contains(e.key) && e.key != 'dirty') e.key: e.value,
-        }..['dirty'] = 0;
-        final keys = data.keys.toList();
-        try {
-          await db.customStatement(
-            'INSERT INTO $t (${keys.join(', ')}) VALUES (${List.filled(keys.length, '?').join(', ')}) '
-            'ON CONFLICT(id) DO UPDATE SET ${keys.map((k) => '$k = excluded.$k').join(', ')}',
-            [for (final k in keys) data[k]],
-          );
-        } catch (e) {
-          debugPrint('sync: skipped malformed $t/${c['id']}: $e'); // one bad row must not block the rest
+        if (local != null && local.dirty && local.m >= (c['m'] as int)) continue;
+        if (!await db.upsertRaw(t, c['data'], dirty: false)) {
+          debugPrint('sync: skipped malformed $t/${c['id']}'); // one bad row must not block the rest
         }
       }
       // Clear dirty only if the row wasn't edited again while the request was in flight.

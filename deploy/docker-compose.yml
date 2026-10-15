@@ -17,14 +17,15 @@
     environment:
       DATABASE_URL: postgresql://saguki:${DB_PASSWORD}@db:5432/saguki?sslmode=disable
       SAGUKI_PASSWORD: ${SAGUKI_PASSWORD:?set SAGUKI_PASSWORD in .env}
-    ports: ["127.0.0.1:${API_PORT:-8080}:8080"] # local only; Caddy is the public entry
+    ports: ["127.0.0.1:${API_PORT:-8787}:8080"] # local only; nginx (or Caddy) is the public entry
     depends_on:
       db: { condition: service_healthy }
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    profiles: [vps] # `docker compose --profile vps up -d` on the server
+    # Only for a VPS without a web server; yours runs nginx (see nginx-saguki.conf).
+    profiles: [caddy]
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     ports: ["80:80", "443:443"]

@@ -107,6 +107,37 @@ class AppDb extends _$AppDb {
 
   static const _live = 'c.deleted = 0 AND n.deleted = 0';
 
+  late final _columns = {for (final t in allTables) t.actualTableName: t.$columns.map((c) => c.name).toSet()};
+
+  /// Upsert a raw row keyed by SQLite column names (sync pulls, .saguki imports).
+  /// Unknown tables/columns are dropped. Returns false if the row was malformed.
+  Future<bool> upsertRaw(String table, Map<String, dynamic> row, {required bool dirty}) async {
+    final known = _columns[table];
+    if (known == null) return false;
+    final data = {
+      for (final e in row.entries)
+        if (known.contains(e.key) && e.key != 'dirty') e.key: e.value,
+    }..['dirty'] = dirty ? 1 : 0;
+    final keys = data.keys.toList();
+    try {
+      await customStatement(
+        'INSERT INTO $table (${keys.join(', ')}) VALUES (${List.filled(keys.length, '?').join(', ')}) '
+        'ON CONFLICT(id) DO UPDATE SET ${keys.map((k) => '$k = excluded.$k').join(', ')}',
+        [for (final k in keys) data[k]],
+      );
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Local modified_at for a row, or null if absent.
+  Future<({int m, bool dirty})?> localVersion(String table, String id) async {
+    final r = await customSelect('SELECT modified_at, dirty FROM $table WHERE id = ?', variables: [Variable(id)])
+        .getSingleOrNull();
+    return r == null ? null : (m: r.read<int>('modified_at'), dirty: r.read<int>('dirty') == 1);
+  }
+
   /// New cards still allowed today for [deckId].
   Future<int> newLeft(Deck deck) async {
     final r = await customSelect(
