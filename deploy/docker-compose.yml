@@ -1,0 +1,52 @@
+﻿services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: saguki
+      POSTGRES_USER: saguki
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: pg_isready -U saguki
+      interval: 5s
+
+  api:
+    build: ../server
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://saguki:${DB_PASSWORD}@db:5432/saguki?sslmode=disable
+      SAGUKI_PASSWORD: ${SAGUKI_PASSWORD:?set SAGUKI_PASSWORD in .env}
+    ports: ["127.0.0.1:${API_PORT:-8080}:8080"] # local only; Caddy is the public entry
+    depends_on:
+      db: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: [vps] # `docker compose --profile vps up -d` on the server
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on: [api]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles: [vps]
+    environment: { PGPASSWORD: "${DB_PASSWORD}" }
+    volumes: [./backups:/backups]
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h db -U saguki saguki | gzip > /backups/saguki-$$(date +%F).sql.gz;
+        find /backups -name "*.sql.gz" -mtime +14 -delete;
+        sleep 86400; done'
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  caddy:

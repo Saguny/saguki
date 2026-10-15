@@ -1,0 +1,222 @@
+import 'package:drift/drift.dart';
+import 'package:drift_flutter/drift_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+part 'db.g.dart';
+
+const _uuid = Uuid();
+
+/// Sync clock: epoch milliseconds (second precision made same-second edits tie).
+int nowMs() => DateTime.now().millisecondsSinceEpoch;
+
+/// Sync columns (PLAN.md §1): client UUIDv7, last-write-wins clock, soft delete, push flag.
+mixin Synced on Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v7())();
+  IntColumn get modifiedAt => integer().clientDefault(nowMs)();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Decks extends Table with Synced {
+  TextColumn get name => text()();
+  TextColumn get language => text().withDefault(const Constant('ja'))();
+  TextColumn get description => text().withDefault(const Constant(''))();
+  IntColumn get newPerDay => integer().withDefault(const Constant(20))();
+  RealColumn get desiredRetention => real().withDefault(const Constant(0.9))();
+}
+
+class Notes extends Table with Synced {
+  TextColumn get deckId => text().references(Decks, #id)();
+  TextColumn get term => text()();
+  TextColumn get pronunciation => text().withDefault(const Constant(''))();
+  TextColumn get meaning => text().withDefault(const Constant(''))();
+  TextColumn get explanation => text().withDefault(const Constant(''))();
+  TextColumn get example => text().withDefault(const Constant(''))();
+  TextColumn get exampleTranslation => text().withDefault(const Constant(''))();
+  TextColumn get tags => text().withDefault(const Constant(''))(); // space separated
+}
+
+/// Scheduling state, one per note+direction. `reps == 0` means new.
+class Cards extends Table with Synced {
+  TextColumn get noteId => text().references(Notes, #id)();
+  TextColumn get direction => text().withDefault(const Constant('fwd'))();
+  DateTimeColumn get due => dateTime().clientDefault(DateTime.now)();
+  IntColumn get state => integer().withDefault(const Constant(1))(); // fsrs State.value
+  IntColumn get step => integer().nullable().withDefault(const Constant(0))();
+  RealColumn get stability => real().nullable()();
+  RealColumn get difficulty => real().nullable()();
+  IntColumn get reps => integer().withDefault(const Constant(0))();
+  IntColumn get lapses => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastReview => dateTime().nullable()();
+}
+
+/// Append-only review history; source for stats. Only an undo ever changes a row (soft delete).
+class ReviewLogs extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v7())();
+  IntColumn get modifiedAt => integer().withDefault(const Constant(0))();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  TextColumn get cardId => text().references(Cards, #id)();
+  IntColumn get rating => integer()();
+  DateTimeColumn get reviewedAt => dateTime()();
+  IntColumn get durationMs => integer()();
+  BoolColumn get wasNew => boolean()();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class DeckWithCounts {
+  DeckWithCounts(this.deck, this.due, this.fresh);
+  final Deck deck;
+  final int due, fresh;
+}
+
+typedef Study = ({Card card, Note note});
+
+/// Day rolls over at 4 am, like Anki.
+DateTime dayStart([DateTime? now]) {
+  now ??= DateTime.now();
+  final d = DateTime(now.year, now.month, now.day, 4);
+  return now.isBefore(d) ? d.subtract(const Duration(days: 1)) : d;
+}
+
+@DriftDatabase(tables: [Decks, Notes, Cards, ReviewLogs])
+class AppDb extends _$AppDb {
+  AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'saguki'));
+
+  @override
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(reviewLogs, reviewLogs.modifiedAt);
+            await m.addColumn(reviewLogs, reviewLogs.deleted);
+          }
+          if (from < 3) {
+            for (final t in ['decks', 'notes', 'cards', 'review_logs']) {
+              await customStatement('UPDATE $t SET modified_at = modified_at * 1000');
+            }
+          }
+        },
+        beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
+      );
+
+  static const _live = 'c.deleted = 0 AND n.deleted = 0';
+
+  /// New cards still allowed today for [deckId].
+  Future<int> newLeft(Deck deck) async {
+    final r = await customSelect(
+      'SELECT COUNT(*) AS n FROM review_logs l JOIN cards c ON c.id = l.card_id JOIN notes n ON n.id = c.note_id '
+      'WHERE n.deck_id = ? AND l.was_new = 1 AND l.deleted = 0 AND l.reviewed_at >= ?',
+      variables: [Variable(deck.id), Variable(dayStart())],
+    ).getSingle();
+    return (deck.newPerDay - r.read<int>('n')).clamp(0, 9999);
+  }
+
+  Stream<List<DeckWithCounts>> watchDecks() {
+    return customSelect(
+      'SELECT d.*, '
+      // 'now' evaluated in SQL so counts stay fresh when the stream re-runs after a sync.
+      '(SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id WHERE n.deck_id = d.id AND $_live AND c.reps > 0 '
+      "  AND c.due <= CAST(strftime('%s', 'now') AS INTEGER)) AS due_n, "
+      '(SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id WHERE n.deck_id = d.id AND $_live AND c.reps = 0) AS new_n, '
+      '(SELECT COUNT(*) FROM review_logs l JOIN cards c ON c.id = l.card_id JOIN notes n ON n.id = c.note_id '
+      '  WHERE n.deck_id = d.id AND l.was_new = 1 AND l.deleted = 0 AND l.reviewed_at >= ?) AS new_done '
+      'FROM decks d WHERE d.deleted = 0 ORDER BY d.name COLLATE NOCASE',
+      variables: [Variable(dayStart())],
+      readsFrom: {decks, notes, cards, reviewLogs},
+    ).watch().map((rows) => [
+          for (final r in rows)
+            if (decks.map(r.data) case final d)
+              DeckWithCounts(d, r.read<int>('due_n'),
+                  r.read<int>('new_n').clamp(0, (d.newPerDay - r.read<int>('new_done')).clamp(0, 9999))),
+        ]);
+  }
+
+  Stream<List<Note>> watchNotes(String deckId, String query) {
+    final q = select(notes)..where((n) => n.deckId.equals(deckId) & n.deleted.equals(false));
+    if (query.isNotEmpty) {
+      final like = '%$query%';
+      q.where((n) => n.term.like(like) | n.meaning.like(like) | n.pronunciation.like(like));
+    }
+    q.orderBy([(n) => OrderingTerm.desc(n.modifiedAt)]);
+    return q.watch();
+  }
+
+  Future<Study?> _first(String where, List<Variable> vars, {String order = 'c.due'}) async {
+    final rows = await customSelect(
+      'SELECT c.id AS cid, n.id AS nid FROM cards c JOIN notes n ON n.id = c.note_id '
+      'WHERE n.deck_id = ? AND $_live AND $where ORDER BY $order LIMIT 1',
+      variables: vars,
+    ).get();
+    if (rows.isEmpty) return null;
+    final card = await (select(cards)..where((c) => c.id.equals(rows.first.read<String>('cid')))).getSingle();
+    final note = await (select(notes)..where((n) => n.id.equals(rows.first.read<String>('nid')))).getSingle();
+    return (card: card, note: note);
+  }
+
+  /// Anki order: due learning → due review → new (within daily limit) → learning due within 20 min.
+  Future<Study?> nextCard(Deck deck) async {
+    final now = DateTime.now();
+    final id = Variable(deck.id);
+    return await _first('c.reps > 0 AND c.state != 2 AND c.due <= ?', [id, Variable(now)]) ??
+        await _first('c.reps > 0 AND c.due <= ?', [id, Variable(now)]) ??
+        (await newLeft(deck) > 0 ? await _first('c.reps = 0', [id], order: 'n.rowid') : null) ??
+        await _first('c.reps > 0 AND c.state != 2 AND c.due <= ?', [id, Variable(now.add(const Duration(minutes: 20)))]);
+  }
+
+  /// Cards left in this session (for the progress bar).
+  Future<int> remaining(Deck deck) async {
+    final soon = DateTime.now().add(const Duration(minutes: 20));
+    final r = await customSelect(
+      'SELECT '
+      '(SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id WHERE n.deck_id = ?1 AND $_live AND c.reps > 0 AND c.due <= ?2) AS due_n, '
+      '(SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id WHERE n.deck_id = ?1 AND $_live AND c.reps = 0) AS new_n',
+      variables: [Variable(deck.id), Variable(soon)],
+    ).getSingle();
+    return r.read<int>('due_n') + r.read<int>('new_n').clamp(0, await newLeft(deck));
+  }
+
+  Future<void> saveNote(NotesCompanion n) => transaction(() async {
+        if (n.id.present) {
+          await (update(notes)..where((x) => x.id.equals(n.id.value)))
+              .write(n.copyWith(modifiedAt: Value(nowMs()), dirty: const Value(true)));
+        } else {
+          final note = await into(notes).insertReturning(n);
+          await into(cards).insert(CardsCompanion.insert(noteId: note.id));
+        }
+      });
+
+  Future<void> deleteNote(String id) => transaction(() async {
+        final now = Value(nowMs());
+        await (update(notes)..where((x) => x.id.equals(id)))
+            .write(NotesCompanion(modifiedAt: now, deleted: const Value(true), dirty: const Value(true)));
+        await (update(cards)..where((x) => x.noteId.equals(id)))
+            .write(CardsCompanion(modifiedAt: now, deleted: const Value(true), dirty: const Value(true)));
+      });
+
+  Future<void> saveDeck(DecksCompanion d) async {
+    if (d.id.present) {
+      await (update(decks)..where((x) => x.id.equals(d.id.value)))
+          .write(d.copyWith(modifiedAt: Value(nowMs()), dirty: const Value(true)));
+    } else {
+      await into(decks).insert(d);
+    }
+  }
+
+  Future<void> deleteDeck(String id) => transaction(() async {
+        final now = Value(nowMs());
+        await (update(decks)..where((x) => x.id.equals(id)))
+            .write(DecksCompanion(modifiedAt: now, deleted: const Value(true), dirty: const Value(true)));
+        for (final n in await (select(notes)..where((x) => x.deckId.equals(id))).get()) {
+          await deleteNote(n.id);
+        }
+      });
+}
+
+/// Swappable so tests can run two in-memory "devices".
+AppDb db = AppDb();

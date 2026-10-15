@@ -1,0 +1,40 @@
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths: ['server/**', 'deploy/**', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH setup
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+          echo "SSH=ssh -p ${{ secrets.VPS_PORT || 22 }}" >> "$GITHUB_ENV"
+          echo "TARGET=${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" >> "$GITHUB_ENV"
+
+      - name: Upload server and deploy files
+        # .env and backups live only on the VPS; excluded files are never deleted by --delete.
+        run: rsync -az --delete --exclude .env --exclude backups --exclude .dart_tool -e "$SSH" server deploy "$TARGET:/opt/saguki/"
+
+      - name: Build, restart, health check
+        run: |
+          $SSH "$TARGET" '
+            set -e
+            cd /opt/saguki/deploy
+            docker compose --profile vps build
+            sudo systemctl restart saguki
+            PORT=$(sed -n "s/^API_PORT=//p" .env)
+            for i in $(seq 30); do curl -fsS "http://127.0.0.1:${PORT:-8080}/health" && exit 0; sleep 2; done
+            docker compose logs --tail 50 api; exit 1
+          '

@@ -1,0 +1,3 @@
+deploy/.env
+deploy/backups/
+server/.dart_tool/
