@@ -78,9 +78,8 @@ Future<Response> download(Request _) async {
 /// Content-addressed key, so the CDN can cache it forever.
 Future<Response> avatar(Request req) async {
   if (!await authed(req)) return json({'error': 'unauthorized'}, 401);
-  final env = Platform.environment;
-  final bucket = env['R2_BUCKET'];
-  final endpoint = env['R2_ENDPOINT'] ?? (env['R2_ACCOUNT_ID'] == null ? null : 'https://${env['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com');
+  final bucket = env('R2_BUCKET');
+  final endpoint = env('R2_ENDPOINT') ?? (env('R2_ACCOUNT_ID') == null ? null : 'https://${env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com');
   final creds = await r2Creds();
   if (creds == null || [bucket, endpoint].any((v) => v == null || v.isEmpty)) {
     return json({'error': 'uploads are not configured on the server'}, 503);
@@ -100,7 +99,7 @@ Future<Response> avatar(Request req) async {
           : null;
   if (type == null) return json({'error': 'send a PNG or JPEG'}, 400);
 
-  final prefix = env['R2_PREFIX'] ?? 'pfps/';
+  final prefix = env('R2_PREFIX') ?? 'pfps/';
   final key = '$prefix${sha256.convert(b)}.${type == 'png' ? 'png' : 'jpg'}';
   try {
     await s3Put(Uri.parse('$endpoint/$bucket/$key'), b, 'image/$type', creds.id, creds.secret);
@@ -108,7 +107,7 @@ Future<Response> avatar(Request req) async {
     stderr.writeln('avatar upload failed: $e');
     return json({'error': 'upload failed'}, 502);
   }
-  final cdn = (env['R2_PUBLIC_URL'] ?? 'https://cdn.off-by-one.digital').replaceAll(RegExp(r'/+$'), '');
+  final cdn = (env('R2_PUBLIC_URL') ?? 'https://cdn.off-by-one.digital').replaceAll(RegExp(r'/+$'), '');
   return json({'url': '$cdn/$key'});
 }
 
@@ -117,15 +116,14 @@ Future<Response> avatar(Request req) async {
 /// S3 keys from R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY, or derived from a Cloudflare API token
 /// (R2_TOKEN): key id = the token's id, secret = sha256(token). Null if neither is set.
 Future<({String id, String secret})?> r2Creds() async {
-  final env = Platform.environment;
   if (_creds != null) return _creds;
-  final id = env['R2_ACCESS_KEY_ID'] ?? '', secret = env['R2_SECRET_ACCESS_KEY'] ?? '', token = env['R2_TOKEN'] ?? '';
+  final id = env('R2_ACCESS_KEY_ID') ?? '', secret = env('R2_SECRET_ACCESS_KEY') ?? '', token = env('R2_TOKEN') ?? '';
   if (id.isNotEmpty && secret.isNotEmpty) return _creds = (id: id, secret: secret);
   if (token.isEmpty) return null;
   final client = HttpClient();
   try {
     // User tokens (cfut_…) verify here; account tokens under the account.
-    for (final path in ['user/tokens/verify', 'accounts/${env['R2_ACCOUNT_ID']}/tokens/verify']) {
+    for (final path in ['user/tokens/verify', 'accounts/${env('R2_ACCOUNT_ID')}/tokens/verify']) {
       final r = await client.getUrl(Uri.parse('https://api.cloudflare.com/client/v4/$path'));
       r.headers.set('authorization', 'Bearer $token');
       final res = await r.close();
@@ -176,6 +174,9 @@ Future<void> s3Put(Uri url, List<int> body, String type, String keyId, String se
     client.close();
   }
 }
+
+/// Env var with empty treated as unset (compose passes `${X:-}` through as "").
+String? env(String key) => switch (Platform.environment[key]) { null || '' => null, final v => v };
 
 Response json(Object body, [int status = 200]) =>
     Response(status, body: jsonEncode(body), headers: {'content-type': 'application/json'});
