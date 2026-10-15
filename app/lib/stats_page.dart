@@ -147,25 +147,34 @@ class Tiles extends StatelessWidget {
   final List<StatTile> tiles;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final cols = c.maxWidth >= 560 ? 4 : 2;
-        final w = (c.maxWidth - 10 * (cols - 1)) / cols;
-        return Wrap(spacing: 10, runSpacing: 10, children: [
-          for (final t in tiles)
-            Container(
-              width: w,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: C.surface1, borderRadius: BorderRadius.circular(14)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t.label, style: T.footnote),
-                const SizedBox(height: 4),
-                Text(t.value, style: ts(28, w: 700, height: 1.1)),
-                const SizedBox(height: 2),
-                Text(t.sub, style: T.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
-            ),
-        ]);
-      });
+  Widget build(BuildContext context) {
+    // Screen width, not LayoutBuilder: a LayoutBuilder inside a lazy ListView can throw when the
+    // list rebuilds it mid-layout during a fast scroll (grey box in release builds).
+    final cols = MediaQuery.sizeOf(context).width >= 592 ? 4 : 2; // 560 + page padding
+    return Column(children: [
+      for (var r = 0; r < tiles.length; r += cols) ...[
+        if (r > 0) const SizedBox(height: 10),
+        Row(children: [
+          for (var i = r; i < r + cols; i++) ...[
+            if (i > r) const SizedBox(width: 10),
+            Expanded(child: i < tiles.length ? _tile(tiles[i]) : const SizedBox()),
+          ],
+        ]),
+      ],
+    ]);
+  }
+
+  Widget _tile(StatTile t) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: C.surface1, borderRadius: BorderRadius.circular(14)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(t.label, style: T.footnote),
+          const SizedBox(height: 4),
+          Text(t.value, style: ts(28, w: 700, height: 1.1), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(t.sub, style: T.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
+      );
 }
 
 /// Titled chart card.
