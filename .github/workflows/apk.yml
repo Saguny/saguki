@@ -22,10 +22,18 @@ jobs:
 
       - name: Signing key
         working-directory: app/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          # Strip whitespace/line breaks a pasted secret may carry.
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/release.jks"
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PW" -alias saguki > /dev/null; then
+            echo "::error::ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD don't open the keystore. Re-set them from ~/.saguki/github-secrets.txt (gh secret set …)."
+            exit 1
+          fi
           printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=saguki\nstoreFile=%s\n' \
-            "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" "$RUNNER_TEMP/release.jks" > key.properties
+            "$KEYSTORE_PW" "$KEYSTORE_PW" "$RUNNER_TEMP/release.jks" > key.properties
 
       - name: Build
         working-directory: app
