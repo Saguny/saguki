@@ -17,8 +17,17 @@ final _tts = FlutterTts();
 Future<void> speak(String text, String lang) async {
   if (text.trim().isEmpty) return;
   try {
-    await _tts.setLanguage(ttsLocale(lang));
-    await _tts.setSpeechRate(prefNum('ttsRate', 0.5));
+    final loc = ttsLocale(lang);
+    await _tts.stop();
+    await _tts.setLanguage(loc);
+    // setLanguage alone can leave the default (e.g. Japanese) voice selected, which reads
+    // Chinese with Japanese readings. Pick an exact-locale voice explicitly.
+    final voices = await _tts.getVoices as List? ?? const [];
+    String norm(Object? s) => '$s'.toLowerCase().replaceAll('_', '-');
+    final v = voices.cast<Map>().where((v) => norm(v['locale']) == norm(loc)).firstOrNull;
+    if (v != null) await _tts.setVoice({'name': '${v['name']}', 'locale': '${v['locale']}'});
+    // Chinese is hard to follow at the Japanese-tuned default pace.
+    await _tts.setSpeechRate(prefNum('ttsRate', 0.5) * (lang.startsWith('zh') ? 0.8 : 1));
     await _tts.speak(text);
   } catch (_) {} // no voice installed for this language: stay silent
 }
@@ -366,11 +375,19 @@ class _CardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 840;
+    // Outlined card; the border lights up in the accent colour once revealed.
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+        child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      constraints: const BoxConstraints(maxWidth: 600),
+      decoration: BoxDecoration(
+        color: C.surface1,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: revealed ? C.accent.withValues(alpha: 0.6) : C.border, width: 1.5),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             RubyText(n.term, n.pronunciation, lang, size: (wide ? 72 : 56) * prefNum('cardScale', 1), showRuby: revealed),
             if (revealed) ...[
@@ -397,7 +414,7 @@ class _CardView extends StatelessWidget {
           ]),
         ),
       ),
-    );
+    ));
   }
 
   /// Example sentence with the studied word in lavender.
