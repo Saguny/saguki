@@ -7,6 +7,24 @@ import 'package:saguki/review.dart';
 import 'package:saguki/srs.dart';
 
 void main() {
+  test('keep practicing: extra new cards past the limit, then review ahead', () async {
+    db = AppDb(NativeDatabase.memory());
+    await db.into(db.decks).insert(DecksCompanion.insert(id: const Value('d'), name: 'JP', newPerDay: const Value(0)));
+    final deck = await db.select(db.decks).getSingle();
+    await db.saveNote(const NotesCompanion(deckId: Value('d'), term: Value('新')));
+    await db.saveNote(const NotesCompanion(deckId: Value('d'), term: Value('旧')));
+    final [a, b] = await db.select(db.cards).get();
+    final later = DateTime.now().add(const Duration(days: 3));
+    await db.update(db.cards).replace(b.copyWith(reps: 3, state: 2, due: later));
+
+    expect(await db.nextCard(deck), null); // limit used up, nothing due
+    expect((await db.nextCard(deck, extraNew: 10))!.card.id, a.id);
+    expect(await db.remaining(deck, extraNew: 10), 1);
+    await db.update(db.cards).replace(a.copyWith(reps: 1, state: 2, due: later.add(const Duration(days: 1))));
+    expect(await db.nextCard(deck, extraNew: 10), null);
+    expect((await db.nextCard(deck, extraNew: 10, ahead: true))!.card.id, b.id); // soonest first
+  });
+
   test('swipe right grades by recall time against your usual', () async {
     db = AppDb(NativeDatabase.memory());
     await db.into(db.decks).insert(DecksCompanion.insert(id: const Value('d'), name: 'JP'));

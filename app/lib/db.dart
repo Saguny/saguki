@@ -148,14 +148,14 @@ class AppDb extends _$AppDb {
     return r == null ? null : (m: r.read<int>('modified_at'), dirty: r.read<int>('dirty') == 1);
   }
 
-  /// New cards still allowed today for [deckId].
-  Future<int> newLeft(Deck deck) async {
+  /// New cards still allowed today for [deck], plus [extra] granted by "Keep practicing".
+  Future<int> newLeft(Deck deck, {int extra = 0}) async {
     final r = await customSelect(
       'SELECT COUNT(*) AS n FROM review_logs l JOIN cards c ON c.id = l.card_id JOIN notes n ON n.id = c.note_id '
       'WHERE n.deck_id = ? AND l.was_new = 1 AND l.deleted = 0 AND l.reviewed_at >= ?',
       variables: [Variable(deck.id), Variable(dayStart())],
     ).getSingle();
-    return (deck.newPerDay - r.read<int>('n')).clamp(0, 9999);
+    return (deck.newPerDay + extra - r.read<int>('n')).clamp(0, 9999);
   }
 
   Stream<List<DeckWithCounts>> watchDecks() {
@@ -213,18 +213,20 @@ class AppDb extends _$AppDb {
     return (card: card, note: note);
   }
 
-  /// Anki order: due learning → due review → new (within daily limit) → learning due within 20 min.
-  Future<Study?> nextCard(Deck deck) async {
+  /// Anki order: due learning → due review → new (within daily limit + [extraNew]) → learning due
+  /// within 20 min → with [ahead], whatever is due soonest ("Keep practicing").
+  Future<Study?> nextCard(Deck deck, {int extraNew = 0, bool ahead = false}) async {
     final now = DateTime.now();
     final id = Variable(deck.id);
     return await _first('c.reps > 0 AND c.state != 2 AND c.due <= ?', [id, Variable(now)]) ??
         await _first('c.reps > 0 AND c.due <= ?', [id, Variable(now)]) ??
-        (await newLeft(deck) > 0 ? await _first('c.reps = 0', [id], order: 'n.rowid') : null) ??
-        await _first('c.reps > 0 AND c.state != 2 AND c.due <= ?', [id, Variable(now.add(const Duration(minutes: 20)))]);
+        (await newLeft(deck, extra: extraNew) > 0 ? await _first('c.reps = 0', [id], order: 'n.rowid') : null) ??
+        await _first('c.reps > 0 AND c.state != 2 AND c.due <= ?', [id, Variable(now.add(const Duration(minutes: 20)))]) ??
+        (ahead ? await _first('c.reps > 0', [id]) : null);
   }
 
   /// Cards left in this session (for the progress bar).
-  Future<int> remaining(Deck deck) async {
+  Future<int> remaining(Deck deck, {int extraNew = 0}) async {
     final soon = DateTime.now().add(const Duration(minutes: 20));
     final r = await customSelect(
       'SELECT '
@@ -232,7 +234,7 @@ class AppDb extends _$AppDb {
       '(SELECT COUNT(*) FROM cards c JOIN notes n ON n.id = c.note_id WHERE n.deck_id = ?1 AND $_live AND c.reps = 0) AS new_n',
       variables: [Variable(deck.id), Variable(soon)],
     ).getSingle();
-    return r.read<int>('due_n') + r.read<int>('new_n').clamp(0, await newLeft(deck));
+    return r.read<int>('due_n') + r.read<int>('new_n').clamp(0, await newLeft(deck, extra: extraNew));
   }
 
   Future<void> saveNote(NotesCompanion n) => transaction(() async {

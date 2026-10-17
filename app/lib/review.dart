@@ -47,6 +47,8 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   Study? _cur;
   bool _revealed = false, _done = false;
   int _left = 0, _reviewed = 0;
+  int _extraNew = 0; // "Keep practicing": more new cards, then review ahead
+  bool _ahead = false;
   List<Duration> _next = const [];
   ({Card before, String logId})? _last;
   final _watch = Stopwatch();
@@ -78,7 +80,8 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   int get _swipeGrade => _cur == null ? 3 : autoGrade(_cur!.card, _thinkMs, _baseline);
 
   Future<void> _load() async {
-    final cur = await db.nextCard(deck), left = await db.remaining(deck);
+    final cur = await db.nextCard(deck, extraNew: _extraNew, ahead: _ahead),
+        left = await db.remaining(deck, extraNew: _extraNew);
     setState(() {
       _cur = cur;
       _done = cur == null;
@@ -208,12 +211,21 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
                   child: Text('${languages[deck.language] ?? ''}  ·  ${deck.name}',
                       style: ts(12, color: C.text3, lang: deck.language), overflow: TextOverflow.ellipsis),
                 ),
-                if (!_done) Text('$_left left', style: T.caption),
+                if (!_done) Text(_left > 0 || !_ahead ? '$_left left' : 'Practicing ahead', style: T.caption),
               ]),
             ),
             Expanded(
               child: _done
-                  ? _Finished(reviewed: _reviewed)
+                  ? _Finished(
+                      reviewed: _reviewed,
+                      more: _ahead
+                          ? null
+                          : () {
+                              _extraNew += 10;
+                              _ahead = true;
+                              _load();
+                            },
+                    )
                   : _cur == null
                       ? const SizedBox()
                       : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth)),
@@ -431,8 +443,9 @@ class _CardView extends StatelessWidget {
 }
 
 class _Finished extends StatelessWidget {
-  const _Finished({required this.reviewed});
+  const _Finished({required this.reviewed, this.more});
   final int reviewed;
+  final VoidCallback? more; // null once there's nothing left to practice
 
   @override
   Widget build(BuildContext context) => Center(
@@ -443,6 +456,12 @@ class _Finished extends StatelessWidget {
           const SizedBox(height: 4),
           Text('$reviewed ${reviewed == 1 ? 'card' : 'cards'} reviewed', style: T.subhead),
           const SizedBox(height: 24),
+          if (more != null) ...[
+            FilledButton(onPressed: more, child: const Text('Keep practicing')),
+            const SizedBox(height: 6),
+            Text('10 more new cards, then cards due soonest', style: T.caption),
+            const SizedBox(height: 12),
+          ],
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back to deck')),
         ]),
       );
