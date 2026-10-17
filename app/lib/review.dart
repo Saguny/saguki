@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -59,6 +60,7 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   int _thinkMs = 0;
   double _dx = 0; // swipe offset
   bool _dragging = false, _busy = false;
+  Timer? _wait; // ticks a countdown while the only card left is the one you just answered
   // Flip: a quick 3D turn that swaps faces at the midpoint. Enter: the next card pops in.
   late final _flip = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
   late final _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 200), value: 1);
@@ -74,6 +76,7 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _wait?.cancel();
     _flip.dispose();
     _enter.dispose();
     super.dispose();
@@ -85,6 +88,19 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   Future<void> _load() async {
     final cur = await db.nextCard(deck, extraNew: _extraNew, ahead: _ahead),
         left = await db.remaining(deck, extraNew: _extraNew);
+    if (!mounted) return;
+    // nextCard learns ahead when nothing else is due, which would hand an Again card straight back.
+    // Hold it until it's actually due instead (learning steps only, not days-away practice-ahead).
+    _wait?.cancel();
+    _wait = null;
+    final early = cur != null && cur.card.id == _last?.before.id ? cur.card.due.difference(DateTime.now()) : Duration.zero;
+    if (early > Duration.zero && early <= const Duration(minutes: 20)) {
+      _wait = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (cur!.card.due.isAfter(DateTime.now())) return setState(() {});
+        t.cancel();
+        _load();
+      });
+    }
     setState(() {
       _cur = cur;
       _done = cur == null;
@@ -102,7 +118,7 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
 
   void _reveal() {
     final c = _cur;
-    if (c == null || _revealed) return;
+    if (c == null || _revealed || _wait != null) return;
     _thinkMs = _watch.elapsedMilliseconds;
     setState(() {
       _revealed = true;
@@ -231,9 +247,11 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
                     )
                   : _cur == null
                       ? const SizedBox()
-                      : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth)),
+                      : _wait != null
+                          ? Center(child: Text('Back in ${_countdown(_cur!.card.due)}', style: T.subhead))
+                          : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth)),
             ),
-            if (!_done) SizedBox(height: 76, child: _revealed ? _buttons() : _hint()),
+            if (!_done && _wait == null) SizedBox(height: 76, child: _revealed ? _buttons() : _hint()),
           ]),
         ),
       ),
@@ -262,6 +280,11 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
           );
         },
       );
+
+  static String _countdown(DateTime due) {
+    final s = max(0, due.difference(DateTime.now()).inSeconds + 1);
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  }
 
   Widget _hint() => Center(
         child: Text(

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import 'db.dart';
 import 'theme.dart';
@@ -54,6 +55,15 @@ Future<void> importFile(BuildContext context) => _busy(context, 'Importing…', 
           ? importSaguki(await File(path).readAsBytes())
           : importAnki(path);
     });
+
+/// Every install gets the bundled first-timer deck once (made by tool/starter_deck.py), updates included.
+/// Its rows are stamped modified_at = 1, so a deleted copy (here or synced in) is always newer and stays deleted.
+Future<void> seedStarter() async {
+  if (await db.customSelect("SELECT 1 FROM prefs WHERE id = 'starterSeeded'").getSingleOrNull() != null) return;
+  final b = await rootBundle.load('assets/starter/taiwan-mandarin.sgki');
+  await importSaguki(b.buffer.asUint8List(b.offsetInBytes, b.lengthInBytes));
+  await db.setPref('starterSeeded', '1');
+}
 
 Future<void> importCsvInto(BuildContext context, Deck deck) => _busy(context, 'Importing…', () async {
       final path = await _pick(['csv', 'tsv', 'txt']);

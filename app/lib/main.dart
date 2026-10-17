@@ -14,6 +14,7 @@ import 'update.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  seedStarter();
   Sync.start();
   listenPrefs();
   startReminders();

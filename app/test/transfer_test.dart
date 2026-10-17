@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saguki/db.dart';
+import 'package:saguki/pron.dart';
 import 'package:saguki/transfer.dart';
 import 'package:sqlite3/sqlite3.dart' as sq;
 
@@ -103,5 +104,22 @@ void main() {
     expect(await importCsv('Word\tEnglish\n新しい\tnew\n', deck), '1 cards imported');
     final terms = (await db.select(db.notes).get()).map((n) => (n.term, n.meaning));
     expect(terms, containsAll([('勉強', 'study, learn'), ('新しい', 'new')]));
+  });
+
+  test('bundled Taiwan starter deck imports as new zh-Hant cards', () async {
+    db = AppDb(NativeDatabase.memory());
+    final bytes = File('assets/starter/taiwan-mandarin.sgki').readAsBytesSync();
+    expect(await importSaguki(bytes), '107 cards imported');
+    final deck = await db.select(db.decks).getSingle();
+    expect((deck.language, deck.newPerDay), ('zh-Hant', 10));
+    final notes = await db.select(db.notes).get();
+    for (final n in notes) {
+      expect(zhuyin(n.pronunciation), isNot(contains(RegExp('[a-z]'))), reason: n.term); // every syllable parses
+    }
+    expect((await db.nextCard(deck))?.note.term, '你好'); // in list order
+    expect(await importSaguki(bytes), '0 cards imported'); // twice (or on a synced device): no duplicates
+    await db.deleteDeck(deck.id);
+    expect(await importSaguki(bytes), '0 cards imported'); // a deleted starter deck stays deleted
+    expect(await db.select(db.notes).get(), everyElement(predicate<Note>((n) => n.deleted)));
   });
 }

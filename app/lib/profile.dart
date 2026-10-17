@@ -51,26 +51,19 @@ class LangPills extends StatelessWidget {
     final cur = langs.contains(langFilter) ? langFilter : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final l in [null, ...langs])
-            ChoiceChip(
-              label: Text(
-                l == null ? 'All' : languages[l] ?? l,
-                style: ts(14, lang: l, color: cur == l ? C.accent : C.text2),
-              ),
-              selected: cur == l,
-              showCheckmark: false,
-              selectedColor: C.accentContainer,
-              backgroundColor: C.surface1,
-              side: BorderSide.none,
-              shape: const StadiumBorder(),
-              onSelected: (_) => db.setPref('langFilter', l ?? ''),
-            ),
-        ],
-      ),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final l in [null, ...langs])
+          ChoiceChip(
+            label: Text(l == null ? 'All' : languages[l] ?? l, style: ts(14, lang: l, color: cur == l ? C.accent : C.text2)),
+            selected: cur == l,
+            showCheckmark: false,
+            selectedColor: C.accentContainer,
+            backgroundColor: C.surface1,
+            side: BorderSide.none,
+            shape: const StadiumBorder(),
+            onSelected: (_) => db.setPref('langFilter', l ?? ''),
+          ),
+      ]),
     );
   }
 }
@@ -80,18 +73,17 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      // Above the lazy ListView: watchStats() is single-subscription, and a StreamBuilder inside the
-      // list re-listens when scrolled back into view, throws, and shows a giant grey error box.
-      child: StreamBuilder(
-        stream: watchStats(),
-        builder: (context, snap) => ValueListenableBuilder(
-          valueListenable: prefs,
-          builder: (context, _, _) {
-            final name = pref('name', 'You');
-            final s = snap.data;
-            return PageBody(
-              children: [
+        body: SafeArea(
+          // Above the lazy ListView: watchStats() is single-subscription, and a StreamBuilder inside the
+          // list re-listens when scrolled back into view, throws, and shows a giant grey error box.
+          child: StreamBuilder(
+            stream: watchStats(),
+            builder: (context, snap) => ValueListenableBuilder(
+            valueListenable: prefs,
+            builder: (context, _, _) {
+              final name = pref('name', 'You');
+              final s = snap.data;
+              return PageBody(children: [
                 Text('Profile', style: T.largeTitle),
                 const SizedBox(height: 20),
                 InkWell(
@@ -99,22 +91,17 @@ class ProfilePage extends StatelessWidget {
                   onTap: () => showDialog(context: context, builder: (_) => const _EditProfile()),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Avatar(size: 64),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(name, style: T.title2),
-                              Text(pref('bio').isEmpty ? 'Tap to edit your profile' : pref('bio'), style: T.subhead),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right, color: C.text3),
-                      ],
-                    ),
+                    child: Row(children: [
+                      Avatar(size: 64),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(name, style: T.title2),
+                          Text(pref('bio').isEmpty ? 'Tap to edit your profile' : pref('bio'), style: T.subhead),
+                        ]),
+                      ),
+                      const Icon(Icons.chevron_right, color: C.text3),
+                    ]),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -125,181 +112,139 @@ class ProfilePage extends StatelessWidget {
                   StatTile('Studied', s == null ? '–' : fmtMs(s.totalMs), 'all time'),
                 ]),
                 const SizedBox(height: 28),
-                Group(
-                  header: 'Review',
-                  children: [
-                    _Slider(
-                      label: 'Card text size',
-                      value: prefNum('cardScale', 1),
-                      min: 0.8,
-                      max: 1.4,
-                      divisions: 6,
-                      show: (v) => '${(v * 100).round()}%',
-                      onChanged: (v) => db.setPref('cardScale', '$v'),
+                Group(header: 'Review', children: [
+                  _Slider(
+                    label: 'Card text size',
+                    value: prefNum('cardScale', 1),
+                    min: 0.8,
+                    max: 1.4,
+                    divisions: 6,
+                    show: (v) => '${(v * 100).round()}%',
+                    onChanged: (v) => db.setPref('cardScale', '$v'),
+                  ),
+                  SwitchListTile(
+                    title: Text('Read the word aloud on reveal', style: T.body),
+                    value: prefOn('autoPlay'),
+                    activeTrackColor: C.accent,
+                    onChanged: (v) => db.setPref('autoPlay', '$v'),
+                  ),
+                  ListTile(
+                    title: Text('Chinese pronunciation', style: T.body),
+                    trailing: SegmentedButton(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: 'zhuyin', label: Text('ㄅㄆㄇ')),
+                        ButtonSegment(value: 'pinyin', label: Text('Pīnyīn')),
+                      ],
+                      selected: {pref('zhPron', 'zhuyin')},
+                      onSelectionChanged: (v) => db.setPref('zhPron', v.first),
                     ),
-                    SwitchListTile(
-                      title: Text('Read the word aloud on reveal', style: T.body),
-                      value: prefOn('autoPlay'),
-                      activeTrackColor: C.accent,
-                      onChanged: (v) => db.setPref('autoPlay', '$v'),
-                    ),
-                    ListTile(
-                      title: Text('Chinese pronunciation', style: T.body),
-                      trailing: SegmentedButton(
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(value: 'zhuyin', label: Text('ㄅㄆㄇ')),
-                          ButtonSegment(value: 'pinyin', label: Text('Pīnyīn')),
-                        ],
-                        selected: {pref('zhPron', 'zhuyin')},
-                        onSelectionChanged: (v) => db.setPref('zhPron', v.first),
-                      ),
-                    ),
-                    _Slider(
-                      label: 'Speech speed',
-                      value: prefNum('ttsRate', 0.5),
-                      min: 0.25,
-                      max: 0.75,
-                      divisions: 4,
-                      show: (v) => const [
-                        'Slowest',
-                        'Slow',
-                        'Normal',
-                        'Fast',
-                        'Fastest',
-                      ][((v - 0.25) / 0.125).round().clamp(0, 4)],
-                      onChanged: (v) => db.setPref('ttsRate', '$v'),
-                    ),
-                  ],
-                ),
+                  ),
+                  _Slider(
+                    label: 'Speech speed',
+                    value: prefNum('ttsRate', 0.5),
+                    min: 0.25,
+                    max: 0.75,
+                    divisions: 4,
+                    show: (v) => const ['Slowest', 'Slow', 'Normal', 'Fast', 'Fastest'][((v - 0.25) / 0.125).round().clamp(0, 4)],
+                    onChanged: (v) => db.setPref('ttsRate', '$v'),
+                  ),
+                ]),
                 if (remindersSupported) ...[
                   const SizedBox(height: 24),
-                  Group(
-                    header: 'Reminder',
-                    children: [
-                      SwitchListTile(
-                        title: Text('Daily reminder', style: T.body),
-                        subtitle: Text('Only when cards are waiting', style: T.footnote),
-                        value: pref('reminder').isNotEmpty,
-                        activeTrackColor: C.accent,
-                        onChanged: (on) async {
-                          if (on && !await askNotificationPermission()) return;
-                          final v = on ? '19:00' : '';
+                  Group(header: 'Reminder', children: [
+                    SwitchListTile(
+                      title: Text('Daily reminder', style: T.body),
+                      subtitle: Text('Only when cards are waiting', style: T.footnote),
+                      value: pref('reminder').isNotEmpty,
+                      activeTrackColor: C.accent,
+                      onChanged: (on) async {
+                        if (on && !await askNotificationPermission()) return;
+                        final v = on ? '19:00' : '';
+                        await db.setPref('reminder', v);
+                        await scheduleReminders(v);
+                      },
+                    ),
+                    if (pref('reminder').isNotEmpty)
+                      ListTile(
+                        title: Text('Time', style: T.body),
+                        trailing: Text(pref('reminder'), style: T.subhead),
+                        onTap: () async {
+                          final [h, m] = pref('reminder').split(':').map(int.parse).toList();
+                          final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: h, minute: m));
+                          if (t == null) return;
+                          final v = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
                           await db.setPref('reminder', v);
                           await scheduleReminders(v);
                         },
                       ),
-                      if (pref('reminder').isNotEmpty)
-                        ListTile(
-                          title: Text('Time', style: T.body),
-                          trailing: Text(pref('reminder'), style: T.subhead),
-                          onTap: () async {
-                            final [h, m] = pref('reminder').split(':').map(int.parse).toList();
-                            final t = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay(hour: h, minute: m),
-                            );
-                            if (t == null) return;
-                            final v = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-                            await db.setPref('reminder', v);
-                            await scheduleReminders(v);
-                          },
-                        ),
-                    ],
-                  ),
+                  ]),
                 ],
                 const SizedBox(height: 24),
-                Group(
-                  header: 'Appearance & schedule',
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: Text('Accent color', style: T.body)),
-                              Text(pref('accent', 'Lavender'), style: T.subhead),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final MapEntry(key: name, value: color) in accentSwatches.entries)
-                                Tooltip(
-                                  message: name,
-                                  child: Semantics(
-                                    button: true,
-                                    selected: C.accent == color,
-                                    label: '$name accent',
-                                    child: GestureDetector(
-                                      onTap: () => db.setPref('accent', name),
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: color,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: C.accent == color ? C.text : Colors.transparent,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        child: C.accent == color ? Icon(Icons.check, size: 18, color: C.bg) : null,
-                                      ),
-                                    ),
+                Group(header: 'Appearance & schedule', children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text('Accent color', style: T.body)),
+                        Text(pref('accent', 'Lavender'), style: T.subhead),
+                      ]),
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 10, runSpacing: 10, children: [
+                        for (final MapEntry(key: name, value: color) in accentSwatches.entries)
+                          Tooltip(
+                            message: name,
+                            child: Semantics(
+                              button: true,
+                              selected: C.accent == color,
+                              label: '$name accent',
+                              child: GestureDetector(
+                                onTap: () => db.setPref('accent', name),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: C.accent == color ? C.text : Colors.transparent, width: 2),
                                   ),
+                                  child: C.accent == color ? Icon(Icons.check, size: 18, color: C.bg) : null,
                                 ),
-                            ],
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                    _Slider(
-                      label: 'New day starts at',
-                      value: prefNum('rollover', 4),
-                      min: 0,
-                      max: 8,
-                      divisions: 8,
-                      show: (v) => '${v.round().toString().padLeft(2, '0')}:00',
-                      onChanged: (v) => db.setPref('rollover', '${v.round()}'),
-                    ),
-                  ],
-                ),
+                      ]),
+                    ]),
+                  ),
+                  _Slider(
+                    label: 'New day starts at',
+                    value: prefNum('rollover', 4),
+                    min: 0,
+                    max: 8,
+                    divisions: 8,
+                    show: (v) => '${v.round().toString().padLeft(2, '0')}:00',
+                    onChanged: (v) => db.setPref('rollover', '${v.round()}'),
+                  ),
+                ]),
                 const SizedBox(height: 24),
-                Group(
-                  header: 'Sync & data',
-                  children: [
-                    ValueListenableBuilder(
-                      valueListenable: Sync.status,
-                      builder: (context, s, _) => ListTile(
-                        title: Text('Sync', style: T.body),
-                        trailing: Text(
-                          Sync.connected ? Uri.tryParse(Sync.server ?? '')?.host ?? 'On' : 'Off',
-                          style: T.subhead,
-                        ),
-                        onTap: () => showDialog(context: context, builder: (_) => const SyncDialog()),
-                      ),
+                Group(header: 'Sync & data', children: [
+                  ValueListenableBuilder(
+                    valueListenable: Sync.status,
+                    builder: (context, s, _) => ListTile(
+                      title: Text('Sync', style: T.body),
+                      trailing: Text(Sync.connected ? Uri.tryParse(Sync.server ?? '')?.host ?? 'On' : 'Off', style: T.subhead),
+                      onTap: () => showDialog(context: context, builder: (_) => const SyncDialog()),
                     ),
+                  ),
+                  ListTile(title: Text('Import Anki or Saguki file…', style: T.body), onTap: () => importFile(context)),
+                  ListTile(title: Text('Export everything (.sgki)', style: T.body), onTap: () => exportFile(context)),
+                  if (canUpdate)
                     ListTile(
-                      title: Text('Import Anki or Saguki file…', style: T.body),
-                      onTap: () => importFile(context),
+                      title: Text('Check for updates', style: T.body),
+                      trailing: Text(appBuild == 0 ? 'Dev build' : 'Build $appBuild', style: T.subhead),
+                      onTap: () => Updater.checkNow(context),
                     ),
-                    ListTile(
-                      title: Text('Export everything (.sgki)', style: T.body),
-                      onTap: () => exportFile(context),
-                    ),
-                    if (canUpdate)
-                      ListTile(
-                        title: Text('Check for updates', style: T.body),
-                        trailing: Text(appBuild == 0 ? 'Dev build' : 'Build $appBuild', style: T.subhead),
-                        onTap: () => Updater.checkNow(context),
-                      ),
-                  ],
-                ),
+                ]),
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -314,13 +259,12 @@ class ProfilePage extends StatelessWidget {
                     style: T.caption,
                   ),
                 ),
-              ],
-            );
-          },
+              ]);
+            },
+          ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 /// Photo, else emoji or initial on a lavender disc.
@@ -379,28 +323,20 @@ class _Slider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: Text(label, style: T.body)),
-            Text(show(value), style: T.subhead),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          min: min,
-          max: max,
-          divisions: divisions,
-          activeColor: C.accent,
-          inactiveColor: C.surface3,
-          onChanged: onChanged,
-        ),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Expanded(child: Text(label, style: T.body)), Text(show(value), style: T.subhead)]),
+          Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: divisions,
+            activeColor: C.accent,
+            inactiveColor: C.surface3,
+            onChanged: onChanged,
+          ),
+        ]),
+      );
 }
 
 class _EditProfile extends StatefulWidget {
@@ -444,59 +380,44 @@ class _EditProfileState extends State<_EditProfile> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Edit profile', style: T.headline),
-    content: SizedBox(
-      width: 380,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ValueListenableBuilder(
-            valueListenable: prefs,
-            builder: (context, _, _) => Row(
-              children: [
+        title: Text('Edit profile', style: T.headline),
+        content: SizedBox(
+          width: 380,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ValueListenableBuilder(
+              valueListenable: prefs,
+              builder: (context, _, _) => Row(children: [
                 const Avatar(size: 64),
                 const SizedBox(width: 12),
-                TextButton(
-                  onPressed: _uploading ? null : _photo,
-                  child: Text(_uploading ? 'Uploading…' : 'Choose photo'),
-                ),
+                TextButton(onPressed: _uploading ? null : _photo, child: Text(_uploading ? 'Uploading…' : 'Choose photo')),
                 if (pref('avatarUrl').isNotEmpty && !_uploading)
                   TextButton(
                     onPressed: () => db.setPref('avatarUrl', ''),
                     child: Text('Remove', style: ts(17, color: C.again)),
                   ),
-              ],
+              ]),
             ),
-          ),
-          if (_error != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(_error!, style: ts(13, color: C.again)),
+            if (_error != null)
+              Align(alignment: Alignment.centerLeft, child: Text(_error!, style: ts(13, color: C.again))),
+            const SizedBox(height: 16),
+            TextField(controller: _name, autofocus: true, decoration: const InputDecoration(labelText: 'Name')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _avatar,
+              maxLength: 2,
+              decoration: const InputDecoration(labelText: 'Emoji (if no photo)', hintText: '🐱', counterText: ''),
             ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _name,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Name'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _avatar,
-            maxLength: 2,
-            decoration: const InputDecoration(labelText: 'Emoji (if no photo)', hintText: '🐱', counterText: ''),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _bio,
-            maxLength: 80,
-            decoration: const InputDecoration(labelText: 'Bio', hintText: 'Learning 日本語 and 繁體中文', counterText: ''),
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bio,
+              maxLength: 80,
+              decoration: const InputDecoration(labelText: 'Bio', hintText: 'Learning 日本語 and 繁體中文', counterText: ''),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: _save, child: const Text('Save')),
         ],
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      TextButton(onPressed: _save, child: const Text('Save')),
-    ],
-  );
+      );
 }
