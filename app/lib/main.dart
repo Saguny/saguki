@@ -90,7 +90,13 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
-    final body = IndexedStack(index: _i, children: [const Home(), const StatsPage(), CompanionPage(active: _i == 2), const ProfilePage()]);
+    // Each tab gets its own Overlay: a Slider keeps an overlay child shown at all times, and in the
+    // app's root Overlay that child stays onstage while its hidden tab is offstage. On Windows that
+    // corrupts the accessibility tree, and the next click crashes flutter_windows.dll.
+    final body = IndexedStack(index: _i, children: [
+      for (final tab in [const Home(), const StatsPage(), CompanionPage(active: _i == 2), const ProfilePage()])
+        Overlay.wrap(child: tab),
+    ]);
     void go(int i) => setState(() => _i = i);
     if (MediaQuery.sizeOf(context).width >= 840) {
       return Scaffold(

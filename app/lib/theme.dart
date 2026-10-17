@@ -182,17 +182,17 @@ class Group extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
               child: Text(header!.toUpperCase(), style: ts(12, color: C.text3, w: 500)),
             ),
-          ClipRRect(
+          // A Material, not a ColoredBox: ListTiles paint their ink on the nearest Material.
+          Material(
+            color: C.surface1,
             borderRadius: BorderRadius.circular(14),
-            child: ColoredBox(
-              color: C.surface1,
-              child: Column(children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i > 0) const Padding(padding: EdgeInsets.only(left: 16), child: Divider()),
-                  children[i],
-                ],
-              ]),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const Padding(padding: EdgeInsets.only(left: 16), child: Divider()),
+                children[i],
+              ],
+            ]),
           ),
         ],
       );
