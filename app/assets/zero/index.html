@@ -1,0 +1,512 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Zero</title>
+<style>
+/* everything is bundled so she works offline: the app serves assets/ on 127.0.0.1 */
+@font-face{font-family:Inter;src:url(../fonts/Inter.ttf);font-weight:100 900}
+@font-face{font-family:Caveat;src:url(../fonts/Caveat.ttf);font-weight:400 700}
+:root{--bg:#0E0D12;--s1:#16151C;--s2:#1E1C26;--s3:#272433;--border:#2E2B3A;--text:#ECEAF2;--text2:#A9A5B8;--text3:#6F6B80;--accent:#B9A7FF;--accentC:#2C2547;--onAccent:#17132A}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:Inter,system-ui,sans-serif;color:var(--text);-webkit-tap-highlight-color:transparent;user-select:none}
+#stage{position:fixed;inset:0;background:radial-gradient(ellipse 70% 45% at 50% 38%,#231d3a 0%,#15131d 55%,var(--bg) 100%)}
+#stage canvas{display:block;touch-action:none}
+#fade{position:fixed;left:0;right:0;bottom:0;height:22%;background:linear-gradient(transparent,var(--bg) 85%);pointer-events:none}
+#note{position:fixed;left:16px;top:18px;min-width:96px;max-width:128px;padding:13px 12px 9px;background:linear-gradient(#d9d1ee,#cbc2e3);color:#2a2340;font-family:Caveat,cursive;font-weight:700;transform:rotate(-4deg);transform-origin:50% 0;box-shadow:0 8px 16px rgba(0,0,0,.5);border-radius:2px 2px 6px 2px;pointer-events:none;filter:brightness(.88)}
+#note::before{content:"";position:absolute;left:50%;top:-5px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e8e0ff,var(--accent) 55%,#6b5aa8);box-shadow:0 2px 3px rgba(0,0,0,.5)}
+#noteBig{font-size:30px;line-height:.95;font-variant-numeric:tabular-nums}
+#noteSmall{font-size:19px;line-height:1.05;color:#4d4369;margin-top:2px}
+#dresser{position:fixed;z-index:2;right:-14px;bottom:-20px;width:min(52vw,240px);cursor:pointer;filter:drop-shadow(0 -6px 18px rgba(0,0,0,.5));transition:transform .2s}
+#dresser:active{transform:translateY(2px)}
+#sbtn{position:fixed;z-index:3;top:16px;right:14px;padding:6px 8px;font-size:12px;color:var(--text3);cursor:pointer}
+#bubble{position:fixed;left:50%;top:104px;transform:translate(-50%,6px);max-width:min(78vw,320px);padding:10px 14px;border-radius:14px;background:rgba(30,28,38,.92);border:1px solid var(--border);font-size:15px;line-height:1.35;text-align:center;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}
+#bubble.on{opacity:1;transform:translate(-50%,0)}
+#zz{position:fixed;font-weight:600;color:var(--accent);opacity:0;pointer-events:none;transition:opacity 1s}
+#zz span{position:absolute;animation:zz 3s infinite ease-out;opacity:0}
+@keyframes zz{0%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:.9}100%{opacity:0;transform:translate(22px,-46px) scale(1.1)}}
+.sheet{position:fixed;z-index:4;left:0;right:0;bottom:0;max-height:52%;overflow:auto;overscroll-behavior:contain;background:var(--s1);border-top:1px solid var(--border);border-radius:18px 18px 0 0;padding:10px 20px 28px;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.sheet.on{transform:none}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--s3);margin:0 auto 14px}
+.sheet h3{margin:0 0 2px;font-size:17px;font-weight:600}
+.sheet p{margin:0 0 14px;font-size:13px;color:var(--text3)}
+/* same shape as the app's Group: caps header, rounded block, inset dividers */
+.gh{margin:18px 16px 6px;font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase}
+.group{background:var(--s2);border-radius:14px;overflow:hidden}
+.item{display:flex;align-items:center;gap:12px;min-height:50px;padding:0 16px;font-size:16px;position:relative;cursor:pointer}
+.item+.item::before{content:"";position:absolute;left:16px;right:0;top:0;border-top:1px solid var(--border)}
+.item span{flex:1}
+.item.locked{color:var(--text3);cursor:default}
+.cost{display:flex;align-items:center;gap:5px;font-size:14px;font-variant-numeric:tabular-nums}
+.cost svg{width:16px;height:16px}
+.sw{width:44px;height:26px;border-radius:13px;background:var(--s3);position:relative;transition:background .2s;flex:none}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:var(--text2);transition:transform .2s,background .2s}
+.item.on .sw{background:var(--accent)}
+.item.on .sw::after{transform:translateX(18px);background:var(--onAccent)}
+.row{display:flex;align-items:center;gap:12px;margin:10px 0;font-size:14px;color:var(--text2)}
+.row label{width:120px}.row input{flex:1;accent-color:var(--accent)}.row b{width:54px;text-align:right;color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
+#toast{position:fixed;left:50%;bottom:90px;transform:translate(-50%,20px);padding:10px 16px;border-radius:12px;background:var(--accentC);color:var(--accent);font-weight:600;font-size:14px;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+<script src="lib/live2dcubismcore.min.js"></script><!-- Cubism Core 5.1 (Live2D) -->
+<script src="lib/pixi.min.js"></script><!-- pixi.js 6.5.10 -->
+<script src="lib/cubism4.min.js"></script><!-- pixi-live2d-display 0.4.0 -->
+</head><body>
+<div id="stage"></div><div id="fade"></div>
+<div id="note"><div id="noteBig"></div><div id="noteSmall"></div></div>
+<div id="bubble"></div>
+<div id="zz"><span style="animation-delay:0s">z</span><span style="left:10px;top:-8px;font-size:1.3em;animation-delay:1s">z</span><span style="left:20px;top:-18px;font-size:1.6em;animation-delay:2s">Z</span></div>
+<div id="toast"></div>
+<svg id="dresser" viewBox="0 0 200 180" role="button" aria-label="Closet">
+  <defs>
+    <linearGradient id="dw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2531"/><stop offset="1" stop-color="#16131b"/></linearGradient>
+    <linearGradient id="dd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26212d"/><stop offset="1" stop-color="#1d1923"/></linearGradient>
+    <linearGradient id="pot" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5a5168"/><stop offset="1" stop-color="#3c3548"/></linearGradient>
+  </defs>
+  <!-- plant -->
+  <g fill="#6f9479">
+    <ellipse cx="150" cy="22" rx="5" ry="14" transform="rotate(-28 150 22)"/>
+    <ellipse cx="166" cy="18" rx="5" ry="15" transform="rotate(18 166 18)"/>
+    <ellipse cx="141" cy="34" rx="4.5" ry="11" transform="rotate(-62 141 34)"/>
+  </g>
+  <g fill="#86ab8f">
+    <ellipse cx="158" cy="16" rx="5" ry="16" transform="rotate(-4 158 16)"/>
+    <ellipse cx="175" cy="31" rx="4.5" ry="11" transform="rotate(58 175 31)"/>
+  </g>
+  <path d="M143 38h32l-4 20h-24z" fill="url(#pot)"/><rect x="141" y="36" width="36" height="5" rx="2" fill="#625a72"/>
+  <!-- books -->
+  <rect x="40" y="50" width="58" height="8" rx="1.5" fill="#6d6194"/>
+  <rect x="45" y="43" width="50" height="7" rx="1.5" fill="#463f5a"/>
+  <rect x="42" y="36" width="54" height="7" rx="1.5" fill="#8a7fb0"/>
+  <path d="M94 36v7" stroke="#e4def2" stroke-opacity=".35"/>
+  <!-- body -->
+  <rect x="0" y="58" width="200" height="15" rx="4" fill="#3a3446"/>
+  <rect x="0" y="58" width="200" height="3" rx="1.5" fill="#564e64"/>
+  <rect x="8" y="73" width="192" height="120" fill="url(#dw)"/>
+  <rect x="8" y="73" width="192" height="5" fill="#000" opacity=".25"/>
+  <rect x="18" y="84" width="174" height="44" rx="4" fill="url(#dd)" stroke="#37313f"/>
+  <rect x="18" y="136" width="174" height="44" rx="4" fill="url(#dd)" stroke="#37313f"/>
+  <rect x="87" y="102" width="36" height="6" rx="3" fill="#9289a6" opacity=".75"/>
+  <rect x="87" y="154" width="36" height="6" rx="3" fill="#9289a6" opacity=".75"/>
+  <!-- her ribbon caught in the top drawer -->
+  <path d="M52 127c-3 10 2 18-4 29l8-1c3-11-1-19 3-28z" fill="#0f0d12"/>
+  <path d="M59 127c4 9 1 16 8 25l5-3c-5-8-2-15-6-22z" fill="#16131a"/>
+  <path d="M50 128h20" stroke="#000" stroke-opacity=".6" stroke-width="2"/>
+</svg>
+<div id="sbtn">sim</div>
+<div class="sheet" id="wsheet"><div class="grab"></div><h3>Her closet</h3><div id="wgrid"></div></div>
+<div class="sheet" id="ssheet"><div class="grab"></div><h3>Simulate study state</h3><div id="sim"></div></div>
+<script>
+// ---------- study state: the app pushes it in through zeroState(); opened in a browser, sample values + the sim sheet ----------
+const APP = location.search.includes('app');
+const S = APP ? { total: 0, today: 0, due: 0, missed: 0, hour: new Date().getHours(), day: '' }
+  : { total: 640, today: 0, due: 42, missed: 0, hour: new Date().getHours(), day: '' }; // missed = whole days skipped before today
+// what she remembers between visits: outfit, today's forgiveness, how many unlocks you've seen
+let store = {};
+try { store = JSON.parse(localStorage.getItem('zero') || '{}'); } catch {}
+const save = () => { try { localStorage.setItem('zero', JSON.stringify(store)); } catch {} };
+const UNLOCKS = [ // [id, name, total reviews, params, exclusive group]
+  ['phones', 'Headphones', 100, { fase121: 1 }],
+  ['ears', 'Cat ears', 500, { fase120: 1 }],
+  ['coat', 'No jacket', 1500, { fase62: 1 }],
+  ['game', 'Game time', 3000, null], // she plays when you're done for the day
+  ['down', 'Hair down', 5000, { fase108: 1, fase107: 1 }, 'hair'],
+  ['short', 'Short hair', 7500, { fase108: 1, fase109: 1 }, 'hair'],
+  ['bun', 'Little bun', 10000, { fase108: 1, fase115: 1 }, 'hair'],
+  ['chibi', 'Chibi', 20000, { fase88: 1, fase89: 1 }],
+];
+const worn = new Set(store.worn ?? ['phones']);
+const unlocked = u => S.total >= u[2];
+
+// ---------- moods ----------
+let forgive = 0, forgiven = false; // pats chip away at a 3–6 day grudge; 7+ days doesn't budge
+const late = () => S.hour < 5;
+function mood() {
+  if (S.today === 0) {
+    if (S.missed >= 7) return 'cold';
+    if (S.missed >= 3) return forgiven ? 'sulky' : 'angry';
+    if (S.missed === 2) return 'teary';
+    if (S.missed === 1) return 'lonely';
+    return late() ? 'bedtime' : 'sleepy';
+  }
+  if (S.due > 0) return S.missed >= 2 && S.today < 20 ? 'reunion' : S.due <= 5 ? 'almost' : 'cheer';
+  if (late()) return 'bedtime';
+  return S.today >= 150 ? 'proud' : 'happy';
+}
+const POOLS = {
+  sleepy: ['zz… oh. {due} waiting.', '*yawn* …morning?', 'five more minutes…', 'I dreamt about flashcards again.', 'wake me up when you start.'],
+  bedtime: ["it's {hour}am. go to bed.", '…the cards will still be here tomorrow.', '*yawn* sleep is studying too, you know.', 'you, bed, now.'],
+  cheer: ["{due} left. you've got this.", "you're doing great, keep going!", 'one card at a time~', '{today} done already!', "don't stop now ♡", "I'm watching. no slacking."],
+  almost: ['only {due} left!!', 'almost there!', 'finish strong!', 'so close~'],
+  happy: ['all done today! ♡', 'you did it~', 'same time tomorrow?', "I'm proud of you.", '{today} cards. not bad~'],
+  proud: ['{today} cards?! who ARE you.', "okay, that's actually impressive.", 'my study partner is the best ♡', "you're unstoppable today."],
+  reunion: ['…you came back.', 'I thought you forgot about me.', "let's do this together, okay?", "I'm still a little mad. …keep going."],
+  lonely: ["you didn't come yesterday…", 'I waited, you know.', "…I'm not mad. just lonely.", '{due} cards missed you too.'],
+  teary: ['two days…', 'did I do something wrong?', '*sniff* the cards piled up. {due} now.', "I kept your spot warm. …it's cold now."],
+  angry: ['{days} days. hmph.', 'oh, NOW you show up?', "don't talk to me.", '{due} cards. all your fault.', "I'm not speaking to you. …hmph."],
+  sulky: ['…fine. I forgive you.', "but you're doing your cards. ALL of them.", "don't make me wait like that again.", '…I missed you, idiot.'],
+  cold: ['…', 'oh. it\'s you.', '{days} days.', "I stopped counting. …no I didn't. {days} days.", 'do whatever you want.'],
+  pat: ['ehehe', '♡', 'mm~', 'more pats?', 'hehe, stop it~'],
+  patCheer: ['pats after cards!', 'ehehe… okay, back to work.', '♡ now go study'],
+  patSad: ["…you're here now.", '*sniff* …okay.', "don't leave that long again.", '…one more.'],
+  patSulky: ['…hmph ♡', '…only a little.', "I'm still mad. …don't stop."],
+  rub: ['mm~', 'ehehe… that feels nice', '♡♡♡', 'a little to the left… ehehe', "don't stop~", 'I could get used to this…'],
+  rubCat: ['nya~ …I did NOT just say that.', '*purr* …wait.', 'nya… ♡'],
+  rubSad: ["…okay. I'm okay now.", '*sniff* …thank you.', 'stay a bit longer?'],
+  rubSulky: ["…hmph. …don't stop.", "…I'm still mad. …a little.", '…this is cheating.'],
+  rubSleepy: ["mm… that's not helping me wake up…", 'zz… ehehe…', '…five more rubs…'],
+  rubAngry: ['hmph.', '…', "…don't think this works on me.", "…it's working a little."],
+  rubStop: ["…eh? why'd you stop?", 'ehehe. thanks ♡', '…more later?'],
+  patCold: ["don't.", '…', '{days} days, and you want to pat me?', 'stop.'],
+  poke: ['!?', 'h-hey!', 'eyes up here.', '…pervert.', 'excuse me??'],
+  pokeSad: ['…?', "that's not where pats go."],
+  pokeAngry: ['excuse me?!', 'absolutely not.', "you've got some nerve."],
+  pokeCold: ['no.', '…', "don't."],
+  sing: ['♪ la la la~', '♪ kanji, kana, flashcards~', '♪ hmm hmm hmm~'],
+  outfit: ['how do I look?', 'new look ♡', 'hehe', 'cute, right?'],
+};
+const lastLine = {};
+function pick(pool) { // random line, never the same one twice in a row
+  const ls = POOLS[pool], prev = lastLine[pool] ?? (Math.random() * ls.length | 0), i = ls.length < 2 ? 0 : (prev + 1 + (Math.random() * (ls.length - 1) | 0)) % ls.length;
+  lastLine[pool] = i;
+  return ls[i].replace('{due}', `${S.due.toLocaleString()} card${S.due === 1 ? '' : 's'}`).replace('{today}', S.today.toLocaleString())
+    .replace(/\{days\}/g, S.missed).replace('{hour}', S.hour || 12);
+}
+const line = md => md === 'sleepy' && !S.due ? 'zz… nothing due. back to sleep.' : pick(md);
+
+// ---------- pixi + model ----------
+const app = new PIXI.Application({ resizeTo: window, backgroundAlpha: 0, antialias: true, autoDensity: true, resolution: Math.min(devicePixelRatio, 2) });
+document.getElementById('stage').appendChild(app.view);
+const FACE = { x: 1500, y: 1400 }, HEAD = [1120, 820, 1900, 1780], BODY = [1050, 1780, 1980, 3900];
+let m, core;
+const cur = {}, want = {};
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// reactions & timers (seconds left)
+const R = { blush: 0, heart: 0, dizzy: 0, bang: 0, sweat: 0, qmark: 0, awake: 0, talk: 0, squint: 0, tilt: 0, dodge: 0, hurt: 0, huff: 0, turn: 0, sing: 0, yawn: 0, rub: 0 };
+let pats = [], pokes = [], dodgeDir = 1;
+let drag = null, rubFor = 0, rubX = 0, rubLvl = 0, rubLine = 0; // head rubs: finger held down and moving on her head
+let look = { x: 0, y: 0 }, gaze = { x: 0, y: 0 }, glanceAt = 0, pointerAt = -9, pointer = { x: 0, y: 0 };
+let blinkAt = 1, blinkT = -1, t = 0, gameAt = 6, gameT = -1, chatAt = 30, yawnAt = 8;
+
+PIXI.live2d.Live2DModel.from('model/zero.model3.json', { autoInteract: false, idleMotionGroup: 'none' }).then(model => {
+  m = window.m = model; core = m.internalModel.coreModel;
+  m.internalModel.eyeBlink = undefined;          // we blink ourselves
+  m.internalModel.breath?.setParameters?.([]);   // and breathe
+  app.stage.addChild(m);
+  fit(); addEventListener('resize', fit);
+  m.internalModel.on('afterMotionUpdate', apply);
+  app.ticker.add(() => frame(app.ticker.deltaMS / 1000));
+  if (!APP) setTimeout(() => say(line(mood())), 600);
+}).catch(e => console.error('load failed', e));
+
+function fit() {
+  if (!m) return;
+  const y0 = 600, y1 = 3900, s = Math.min(innerHeight / (y1 - y0), innerWidth / 1500);
+  m.scale.set(s); m.x = innerWidth / 2 - FACE.x * s; m.y = innerHeight * 0.12 - y0 * s;
+  const zz = document.getElementById('zz'); zz.style.left = (m.x + 1900 * s) + 'px'; zz.style.top = (m.y + 900 * s) + 'px'; zz.style.fontSize = Math.max(14, 160 * s) + 'px';
+}
+
+// ---------- per-frame: decide what each param wants ----------
+function frame(dt) {
+  if (!m) return;
+  dt = Math.min(dt, 0.1); t += dt; lastDt = dt;
+  for (const k in R) R[k] = Math.max(0, R[k] - dt);
+  let md = mood();
+  if (R.awake > 0 && (md === 'sleepy' || md === 'bedtime')) md = 'cheer';
+  const sleepy = md === 'sleepy' || md === 'bedtime';
+  const away = md === 'angry' || md === 'cold' || R.turn > 0;
+
+  // idle chatter, yawns, singing
+  if (t > chatAt) { chatAt = t + rnd(25, 45); if (!R.talk && !R.dizzy) say(line(md)); }
+  if (sleepy && t > yawnAt) { yawnAt = t + rnd(10, 18); R.yawn = 1.8; }
+  if ((md === 'happy' || md === 'proud') && !R.sing && gameT < 0 && Math.random() < dt / 40) { R.sing = 6; say(pick('sing'), 5); }
+
+  // where she looks: your finger, else idle glances that depend on mood
+  if (t - pointerAt < 2.5 && !away && !R.dodge) { look.x = pointer.x; look.y = pointer.y; }
+  else if (t > glanceAt || R.turn > 0) {
+    glanceAt = t + rnd(1.5, 5);
+    const r = Math.random();
+    look = R.turn > 0 ? { x: -0.95, y: 0.15 }
+      : sleepy ? { x: rnd(-0.15, 0.15), y: -0.35 }
+      : md === 'lonely' || md === 'teary' ? { x: rnd(-0.3, 0.3), y: r < 0.7 ? -0.45 : 0 }
+      : md === 'angry' ? (r < 0.75 ? { x: -0.75, y: 0.1 } : { x: 0, y: 0 }) // hmph, looks away, peeks back
+      : md === 'cold' ? (r < 0.92 ? { x: rnd(-0.95, -0.7), y: rnd(-0.4, -0.1) } : { x: 0, y: 0 }) // barely looks at you
+      : md === 'sulky' ? { x: rnd(0.2, 0.5), y: 0 }
+      : r < 0.45 ? { x: 0, y: 0 } : { x: rnd(-0.6, 0.6), y: rnd(-0.3, 0.35) };
+  }
+  // eyes lead, head follows
+  const ek = 1 - Math.exp(-dt * 18); gaze.x += (look.x - gaze.x) * ek; gaze.y += (look.y - gaze.y) * ek;
+
+  // blink (slower and heavier when she's cold)
+  if (t > blinkAt && blinkT < 0) { blinkT = 0; blinkAt = t + (Math.random() < 0.15 ? 0.25 : rnd(2, 5.5)) * (md === 'cold' ? 1.6 : 1); }
+  let eyeOpen = 1;
+  if (blinkT >= 0) { blinkT += dt; const p = blinkT / (md === 'cold' ? 0.3 : 0.16); eyeOpen = p < 0.5 ? 1 - p * 2 : p < 1 ? (p - 0.5) * 2 : 1; if (p >= 1) blinkT = -1; }
+
+  const breath = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / (sleepy ? 5 : 3.6));
+  const sway = (Math.sin(t * 0.55) * 0.6 + Math.sin(t * 0.23) * 0.4) * (md === 'cold' ? 0.3 : R.sing ? 2.2 : 1);
+  const nod = sleepy ? Math.max(0, Math.sin(t * 0.7)) ** 6 * -14 : 0; // dozing head-drops
+  const yawn = R.yawn ? Math.sin(Math.PI * (1 - R.yawn / 1.8)) : 0;
+
+  // playing the game console when done for the day
+  const game = (md === 'happy' || md === 'proud') && worn.has('game') && unlocked(UNLOCKS.find(u => u[0] === 'game'));
+  if (game && t > gameAt && gameT < 0 && !R.sing) { gameT = 0; }
+  if (gameT >= 0) { gameT += dt; if (gameT > 9 || !game) { gameT = -1; gameAt = t + rnd(10, 20); } }
+  const playing = gameT >= 0;
+
+  rubLvl += ((R.rub ? 1 : 0) - rubLvl) * (1 - Math.exp(-dt * 6));
+  const rubbing = rubLvl > 0.05, melt = rubbing && md !== 'cold' && md !== 'angry' ? rubLvl : 0;
+
+  const W = want;
+  for (const k in W) W[k] = 0;
+  W.ParamAngleX2 = gaze.x * 22 + sway * 4 + (md === 'sulky' ? -12 : 0) - (R.dodge ? dodgeDir * 26 * Math.min(1, R.dodge) : 0);
+  W.ParamAngleX3 = gaze.y * -18 + nod + (playing ? -10 : 0) + breath * 1.5 + yawn * 8 - melt * 7;
+  W.ParamAngleX4 = sway * 5 + R.tilt * 4 + (R.dizzy ? Math.sin(t * 9) * 10 : 0) + (md === 'sulky' ? -6 : 0) + melt * rubX * -12 + melt * Math.sin(t * 7) * 2.5; // leans into your hand
+  W.ParamEyeBallX = playing ? 0 : md === 'sulky' ? 0.7 : clamp(gaze.x * 1.4, -1, 1); // sulky: head away, eyes on you
+  W.ParamEyeBallY = playing ? -0.5 : clamp(-gaze.y * 1.1, -0.5, 0.5);
+  W.ParamBreath = breath;
+  W.ParamMouthOpenY = Math.max(yawn, R.talk > 0 ? Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3)) * (R.sing ? 0.9 : 0.7) : 0);
+
+  // mood faces
+  let open = 1, smile = 0, form = 0.2, brow = 0;
+  const ex = {};
+  const pillow = () => Object.assign(ex, { fase127: 1, fase130: 1, fase125: 1, fase19: 1, fase21: 1 });
+  if (sleepy) { open = 0.32 + Math.sin(t * 0.9) * 0.08; form = 0; pillow(); }
+  if (md === 'cheer') { form = 0.6; smile = 0.2; open = 1.05; }
+  if (md === 'almost') { form = 0.8; smile = 0.1; open = 1.12; ex.fase53 = 1; ex.fase105 = 1; }
+  if (md === 'happy') { form = 1; smile = 0.8; ex.fase55 = 1; ex.fase53 = playing ? 0 : 1; }
+  if (md === 'proud') { form = 1; smile = 0.6; ex.fase55 = 1; ex.fase102 = playing ? 0 : 1; }
+  if (md === 'reunion') { form = 0.7; smile = 0.4; ex.fase56 = 1; ex.fase55 = 1; }
+  if (md === 'lonely') { form = -0.5; brow = -0.6; ex.fase78 = 1; open = 0.85; }
+  if (md === 'teary') { form = -0.7; brow = -0.8; ex.fase56 = 1; ex.fase78 = 1; open = 0.85; }
+  if (md === 'angry') { form = -1; ex.fase90 = 1; ex.fase76 = 1; ex.fase54 = 1; brow = 1; }
+  if (md === 'sulky') { form = -1; ex.fase90 = 1; ex.fase76 = 1; ex.fase55 = 1; open = 0.9; }
+  if (md === 'cold') { form = -0.3; ex.fase54 = 1; ex.fase78 = 1; open = 0.72; }
+  if (playing) { ex.fase128 = 1; ex.fase19 = 1; ex.fase21 = 1; ex.fase132 = Math.sin(t * 3.1) > 0.3 ? 1 : 0; ex.fase133 = Math.sin(t * 2.3 + 1) > 0.5 ? -1 : 0; }
+  if (R.sing) { Object.assign(ex, { fase127: 1, fase124: 1, fase19: 1 }); smile = 0.9; form = 1; R.talk = Math.max(R.talk, 0.2); }
+
+  // reactions on top
+  if (R.blush) { ex.fase55 = 1; if (md !== 'sulky') { smile = Math.max(smile, 1); form = 1; } }
+  if (R.heart) { ex.fase102 = 1; ex.fase78 = 1; ex.fase53 = 0; }
+  if (R.hurt) { ex.fase56 = 1; ex.fase54 = 0; form = -0.8; open = 0.9; }
+  if (R.dizzy) { ex.fase58 = 1; ex.fase78 = 1; ex.fase102 = 0; ex.fase53 = 0; ex.fase59 = 1; form = -0.3; }
+  if (R.huff) { ex.fase90 = 1; ex.fase76 = 1; form = -1; }
+  if (R.bang) { ex.fase105 = 1; open = 1.2; }
+  if (R.sweat) ex.fase59 = 1;
+  if (R.qmark) ex.fase106 = 1;
+  if (R.squint) open = Math.min(open, 0.6);
+  if (yawn) open *= 1 - yawn;
+  if (melt) { ex.fase55 = 1; if (!sleepy && md !== 'lonely' && md !== 'teary') { smile = Math.max(smile, melt); form = Math.max(form, melt); } else open *= 1 - melt * 0.7; }
+
+  W.ParamEyeLOpen = W.ParamEyeROpen = open * eyeOpen * (smile > 0.5 ? 1 - (smile - 0.5) : 1);
+  W.ParamEyeLSmile = W.ParamEyeRSmile = smile;
+  W.ParamMouthForm2 = form;
+  W.ParamBrowRAngle3 = brow;
+  Object.assign(W, ex);
+  W.fase80 = 1; // watermark off
+  for (const u of UNLOCKS) if (u[3] && worn.has(u[0]) && unlocked(u)) for (const k in u[3]) W[k] = u[3][k];
+
+  Object.assign(W, window.force);
+  zz.style.opacity = sleepy && !R.talk ? 1 : 0;
+}
+
+const SNAP = /^(ParamEye[LR]Open|ParamMouthOpenY|fase13[23])$/;
+let lastDt = 0.016;
+function apply() {
+  const dt = lastDt;
+  for (const k in want) {
+    const target = want[k], c = cur[k] ?? 0;
+    const v = SNAP.test(k) ? target : c + (target - c) * (1 - Math.exp(-dt * (k.startsWith('fase') ? 8 : 5)));
+    cur[k] = v; core.setParameterValueById(k, v);
+  }
+}
+
+// debug: fast-forward n seconds (the hidden preview pane barely ticks)
+window.closeup = (on = true) => { if (!on) return fit(); const s = innerWidth / 1100; m.scale.set(s); m.x = innerWidth / 2 - FACE.x * s; m.y = innerHeight * 0.3 - FACE.y * s; };
+window.ff = (secs = 2) => { for (let i = 0; i < secs * 60; i++) { frame(1 / 60); m.update(1000 / 60); app.render(); } };
+
+// ---------- talking ----------
+let bubbleTimer;
+function say(text, secs = 3.5) {
+  const b = document.getElementById('bubble');
+  b.textContent = text; b.classList.add('on');
+  R.talk = text === '…' ? 0 : Math.min(1.6, 0.25 + text.length * 0.045);
+  chatAt = Math.max(chatAt, t + 15);
+  clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => b.classList.remove('on'), secs * 1000);
+}
+
+// ---------- touch ----------
+const view = app.view;
+const local = e => m.toLocal(new PIXI.Point(e.clientX, e.clientY));
+view.addEventListener('pointermove', e => {
+  if (!m) return;
+  const p = local(e);
+  pointer = { x: clamp((p.x - FACE.x) / 1100, -1, 1), y: clamp((FACE.y - p.y) / 1100, -1, 1) };
+  if (e.pointerType === 'mouse' || e.buttons) pointerAt = t;
+  if (drag && e.buttons) {
+    const d = Math.hypot(p.x - drag.x, p.y - drag.y); drag.x = p.x; drag.y = p.y; drag.dist += d;
+    if (drag.dist >= 120) rub(d, p.x);
+  }
+});
+view.addEventListener('pointerdown', e => {
+  if (!m) return;
+  closeSheets();
+  const p = local(e), inside = r => p.x > r[0] && p.x < r[2] && p.y > r[1] && p.y < r[3];
+  pointer = { x: clamp((p.x - FACE.x) / 1100, -1, 1), y: clamp((FACE.y - p.y) / 1100, -1, 1) }; pointerAt = t;
+  if (inside(HEAD)) { drag = { x: p.x, y: p.y, dist: 0, side: p.x < FACE.x ? -1 : 1 }; rubFor = 0; rubLine = t + 0.4; try { view.setPointerCapture(e.pointerId); } catch {} }
+  else if (inside(BODY)) poke();
+});
+const release = () => {
+  if (!drag) return;
+  if (drag.dist < 120) pat(drag.side); // barely moved: that was a pat
+  else if (rubFor > 3000 && !['cold', 'angry', 'sleepy', 'bedtime'].includes(mood())) say(pick('rubStop'), 2);
+  drag = null;
+};
+view.addEventListener('pointerup', release);
+view.addEventListener('pointercancel', release);
+
+function rub(d, x) {
+  const md = mood(), sleepy = (md === 'sleepy' || md === 'bedtime') && !R.awake;
+  R.rub = 0.35; rubX = clamp((x - FACE.x) / 450, -1, 1); rubFor += d;
+  const talk = pool => { if (t > rubLine) { rubLine = t + rnd(3.5, 5.5); say(pick(pool), 2.2); } };
+  if (md === 'cold') { // she leans away; a long enough rub cracks her for a second
+    dodgeDir = rubX < 0 ? -1 : 1; R.dodge = 1.2;
+    if (rubFor > 12000 && !R.hurt) { R.hurt = 3; rubFor = 0; rubLine = t + 5; return say('…why are you being nice now.'); }
+    return talk('patCold');
+  }
+  if (md === 'angry') {
+    forgive += d / 2500;
+    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; hud(); rubLine = t + 4; return say('…fine. you win. I forgive you.'); }
+    if (t > rubLine) { rubLine = t + 3.5; say(POOLS.rubAngry[Math.min(3, forgive / 1.5 | 0)], 2); }
+    return;
+  }
+  if (rubFor > 6000 && !sleepy && md !== 'lonely' && md !== 'teary') R.heart = 0.5;
+  talk(sleepy ? 'rubSleepy' : md === 'sulky' ? 'rubSulky' : md === 'lonely' || md === 'teary' ? 'rubSad'
+    : worn.has('ears') && Math.random() < 0.4 ? 'rubCat' : 'rub');
+}
+
+function pat(side) {
+  const md = mood();
+  pats = pats.filter(x => t - x < 1.6); pats.push(t);
+  const first = pats.length === 1;
+  if ((md === 'sleepy' || md === 'bedtime') && !R.awake) {
+    R.awake = 12; R.bang = 1.2; R.sweat = 1.2;
+    return say(md === 'bedtime' ? "!! …I wasn't asleep. you should be, though." : S.due ? `!! I'm up. ${S.due} cards, let's go.` : "!! I'm up, I'm up.");
+  }
+  if (md === 'cold') { // flinches away, every so often the hurt shows through
+    dodgeDir = side; R.dodge = 1.4; forgive++;
+    if (forgive % 5 === 0) { R.hurt = 3; return say('…I really waited for you, you know.'); }
+    return first && say(pick('patCold'), 2);
+  }
+  if (md === 'angry') {
+    forgive++;
+    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; R.bang = 0.8; hud(); return say('…fine. I forgive you. but you do your cards.'); }
+    if (forgive <= 3) { dodgeDir = side; R.dodge = 1.2; R.huff = 1.5; }
+    return say(['hmph.', "don't touch me.", '…you think a pat fixes this?', '…', '…keep going.'][forgive - 1], 2);
+  }
+  R.tilt = side * 1.2;
+  if (pats.length >= 5 && md !== 'lonely' && md !== 'teary') { R.dizzy = 3; R.blush = R.heart = 0; pats = []; return say('s-stop, the room is spinning…'); }
+  if (R.dizzy) return;
+  if (md === 'lonely' || md === 'teary') { R.blush = 2; R.hurt = md === 'teary' ? 2.5 : 0; return first && say(pick('patSad'), 2.2); }
+  if (md === 'sulky') { R.blush = 2.5; return first && say(pick('patSulky'), 2); }
+  R.blush = 2.5; R.heart = pats.length >= 2 ? 2 : 0;
+  if (first) say(pick(md === 'cheer' || md === 'almost' || md === 'reunion' ? (Math.random() < 0.5 ? 'patCheer' : 'pat') : 'pat'), 1.8);
+}
+
+function poke() {
+  const md = mood();
+  pokes = pokes.filter(x => t - x < 4); pokes.push(t);
+  if (pokes.length >= 3 && md !== 'cold') { pokes = []; R.turn = 5; R.huff = 2; R.blush = 2; return say("okay, that's it. I'm ignoring you."); }
+  if (md === 'cold') { R.squint = 1.5; return say(pick('pokeCold'), 1.6); }
+  if (md === 'angry') { R.huff = 1.5; R.bang = 1; return say(pick('pokeAngry'), 1.8); }
+  if (md === 'lonely' || md === 'teary') { R.qmark = 1.5; return say(pick('pokeSad'), 1.8); }
+  if (md === 'sleepy' || md === 'bedtime') { R.awake = 12; }
+  R.bang = 1; R.sweat = 1.5; R.squint = 1.5; R.blush = 1.5; say(pick('poke'), 1.6);
+}
+
+// ---------- HUD, wardrobe, simulator ----------
+// the sticky note on her wall, in her handwriting
+function hud() {
+  const n = x => x.toLocaleString(), days = `${S.missed} day${S.missed === 1 ? '' : 's'}`;
+  const [big, small] = {
+    sleepy: S.due ? [n(S.due), 'cards waiting'] : ['0', 'nothing due ♡'],
+    bedtime: S.today ? [n(S.today), 'now sleep!!'] : [n(S.due), 'tomorrow…'],
+    cheer: [n(S.today), `done · ${n(S.due)} to go`],
+    almost: [`${n(S.due)} left`, 'almost!!'],
+    happy: [n(S.today), 'cards today ♡'],
+    proud: [`${n(S.today)}!!`, 'cards today ★'],
+    reunion: [n(S.today), 'you came back'],
+    lonely: [days, 'missed you'],
+    teary: [days, '…'],
+    angry: [days, 'hmph.'],
+    sulky: [days, 'forgiven. barely.'],
+    cold: [days, ''],
+  }[mood()];
+  document.getElementById('noteBig').textContent = big;
+  document.getElementById('noteSmall').textContent = small;
+  document.getElementById('noteSmall').style.display = small ? '' : 'none';
+}
+// Icons.style_outlined, the app's card icon
+const CARD = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.53 19.65l1.34.56v-9.03l-2.43 5.86c-.41 1.02.08 2.19 1.09 2.61zm19.5-3.7L17.07 3.98c-.31-.75-1.04-1.21-1.81-1.23-.26 0-.53.04-.79.15L7.1 5.95c-.75.31-1.21 1.03-1.23 1.8-.01.27.04.54.15.8l4.96 11.97c.31.76 1.05 1.22 1.83 1.23.26 0 .52-.05.77-.15l7.36-3.05c1.02-.42 1.51-1.59 1.09-2.6zm-9.2 3.8L7.87 7.79l7.35-3.04h.01l4.95 11.95-7.35 3.05z"/><circle cx="11" cy="9" r="1"/><path d="M5.88 19.75c0 1.1.9 2 2 2h1.45l-3.45-8.34v6.34z"/></svg>';
+function wardrobe() {
+  store.worn = [...worn]; save();
+  const have = UNLOCKS.filter(unlocked), locked = UNLOCKS.filter(u => !unlocked(u));
+  const group = (head, rows) => rows.length ? `<div class="gh">${head}</div><div class="group">${rows.join('')}</div>` : '';
+  document.getElementById('wgrid').innerHTML =
+    group('Unlocked', have.map(u => `<div class="item ${worn.has(u[0]) ? 'on' : ''}" data-id="${u[0]}"><span>${u[1]}</span><div class="sw"></div></div>`)) +
+    group('Locked', locked.map(u => `<div class="item locked"><span>${u[1]}</span><div class="cost">${CARD}${u[2].toLocaleString()}</div></div>`));
+}
+document.getElementById('wgrid').onclick = e => {
+  const el = e.target.closest('.item[data-id]'); if (!el) return;
+  const u = UNLOCKS.find(x => x[0] === el.dataset.id);
+  if (worn.has(u[0])) worn.delete(u[0]);
+  else {
+    if (u[4]) for (const x of UNLOCKS) if (x[4] === u[4]) worn.delete(x[0]);
+    worn.add(u[0]);
+    const md = mood();
+    if (md === 'cold' || md === 'angry') say(md === 'cold' ? '…' : "dressing me up won't fix it.", 1.8);
+    else { R.bang = 0.8; say(pick('outfit'), 1.8); }
+  }
+  wardrobe();
+};
+const sliders = [['total', 'Total reviews', 0, 30000, 10], ['today', 'Reviewed today', 0, 300, 1], ['due', 'Cards due', 0, 300, 1], ['missed', 'Days missed', 0, 10, 1], ['hour', 'Hour', 0, 23, 1]];
+document.getElementById('sim').innerHTML = sliders.map(([k, n, a, b, st]) => `<div class="row"><label>${n}</label><input type="range" min="${a}" max="${b}" step="${st}" value="${S[k]}" data-k="${k}"><b id="v_${k}">${S[k]}</b></div>`).join('');
+document.getElementById('sim').oninput = e => {
+  const k = e.target.dataset.k, before = mood(), was = UNLOCKS.filter(unlocked).length;
+  S[k] = +e.target.value; document.getElementById('v_' + k).textContent = S[k].toLocaleString();
+  if (k === 'missed' || (k === 'today' && S.today > 0)) { forgive = 0; forgiven = false; }
+  const now = UNLOCKS.filter(unlocked);
+  if (now.length > was) { const u = now[now.length - 1]; toast(`Unlocked: ${u[1]}`); worn.add(u[0]); if (u[4]) for (const x of UNLOCKS) if (x[4] === u[4] && x !== u) worn.delete(x[0]); R.bang = 1.5; say(`ooh, ${u[1].toLowerCase()}!`); }
+  else if (mood() !== before) say(line(mood()));
+  hud(); wardrobe();
+};
+function toast(s) { const el = document.getElementById('toast'); el.textContent = s; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 2200); }
+const sheets = { dresser: 'wsheet', sbtn: 'ssheet' };
+function closeSheets() { for (const s of Object.values(sheets)) document.getElementById(s).classList.remove('on'); }
+for (const [b, s] of Object.entries(sheets)) document.getElementById(b).onclick = () => { const el = document.getElementById(s), on = el.classList.contains('on'); closeSheets(); if (!on) el.classList.add('on'); };
+// ---------- the app's side ----------
+let greeted = false, greetedAt = 0; // ms, wall clock (t stops while the tab is hidden)
+window.zeroState = st => {
+  const first = !greeted, before = mood();
+  Object.assign(S, st);
+  if (st.accent) document.documentElement.style.setProperty('--accent', st.accent);
+  forgiven = !!S.day && store.forgiven === S.day;
+  const now = UNLOCKS.filter(unlocked), seen = store.seen ?? now.length; // first launch: nothing to celebrate
+  if (now.length > seen) {
+    const fresh = now.slice(seen), u = fresh[fresh.length - 1];
+    for (const x of fresh) { if (x[4]) for (const y of UNLOCKS) if (y[4] === x[4]) worn.delete(y[0]); worn.add(x[0]); }
+    toast(`Unlocked: ${u[1]}`); R.bang = 1.5; say(`ooh, ${u[1].toLowerCase()}!`);
+  } else if (first) { greeted = true; greetedAt = performance.now(); say(line(mood())); }
+  else if (mood() !== before) say(line(mood()));
+  store.seen = now.length;
+  hud(); wardrobe();
+};
+// the app stops her ticker while her tab is hidden, and she says hi again if you've been gone a while
+window.zeroActive = on => {
+  if (!on) { app.ticker.stop(); closeSheets(); return; }
+  app.ticker.start();
+  if (greeted && performance.now() - greetedAt > 90e3) { greetedAt = performance.now(); setTimeout(() => say(line(mood())), 400); }
+};
+if (APP) { document.getElementById('sbtn').remove(); document.getElementById('ssheet').remove(); delete sheets.sbtn; }
+hud(); wardrobe();
+</script>
+</body></html>

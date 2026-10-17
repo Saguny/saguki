@@ -1,0 +1,38 @@
+{
+ "Version": 3,
+ "FileReferences": {
+  "Moc": "zero.moc3",
+  "Textures": [
+   "tex_00.png",
+   "tex_01.png",
+   "tex_02.png"
+  ],
+  "Physics": "zero.physics3.json",
+  "DisplayInfo": "zero.cdi3.json",
+  "Motions": {
+   "Idle": [
+    {
+     "File": "effects.motion3.json"
+    }
+   ]
+  }
+ },
+ "Groups": [
+  {
+   "Target": "Parameter",
+   "Name": "EyeBlink",
+   "Ids": [
+    "ParamEyeLOpen",
+    "ParamEyeROpen"
+   ]
+  },
+  {
+   "Target": "Parameter",
+   "Name": "LipSync",
+   "Ids": [
+    "ParamMouthForm2",
+    "ParamMouthOpenY"
+   ]
+  }
+ ]
+}

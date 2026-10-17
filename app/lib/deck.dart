@@ -58,8 +58,21 @@ class _DeckPageState extends State<DeckPage> {
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewPage(deck))),
                   child: Text('Study  ·  ${d.due} due, ${d.fresh} new'),
                 )
-              else
+              else ...[
                 Text('You’re done for today.', style: T.subhead, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewPage(deck, practice: true))),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: C.accent,
+                    side: BorderSide(color: C.accent.withValues(alpha: 0.5)),
+                    minimumSize: const Size(0, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    textStyle: ts(17, w: 600),
+                  ),
+                  child: const Text('Keep practicing'),
+                ),
+              ],
               const SizedBox(height: 28),
               TextField(
                 decoration: const InputDecoration(

@@ -36,8 +36,11 @@ const _ratings = [('Again', C.again), ('Hard', C.hard), ('Good', C.good), ('Easy
 
 /// Review screen, direction A "Quiet": content on the background, fixed control positions.
 class ReviewPage extends StatefulWidget {
-  const ReviewPage(this.deck, {super.key});
+  const ReviewPage(this.deck, {super.key, this.practice = false});
   final Deck deck;
+
+  /// Start in "Keep practicing" mode (the deck's done for today).
+  final bool practice;
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -47,8 +50,8 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   Study? _cur;
   bool _revealed = false, _done = false;
   int _left = 0, _reviewed = 0;
-  int _extraNew = 0; // "Keep practicing": more new cards, then review ahead
-  bool _ahead = false;
+  late int _extraNew = widget.practice ? 10 : 0; // "Keep practicing": more new cards, then review ahead
+  late bool _ahead = widget.practice;
   List<Duration> _next = const [];
   ({Card before, String logId})? _last;
   final _watch = Stopwatch();

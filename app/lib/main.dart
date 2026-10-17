@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'companion.dart';
 import 'db.dart';
 import 'deck.dart';
 import 'lang.dart';
@@ -9,7 +10,6 @@ import 'stats_page.dart';
 import 'sync.dart';
 import 'theme.dart';
 import 'transfer_ui.dart';
-import 'tree.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +63,7 @@ class _SagukiAppState extends State<SagukiApp> {
       );
 }
 
-/// Today / Stats / Tree / Profile: a rail on wide windows, a bottom bar on phones.
+/// Today / Stats / Zero / Profile: a rail on wide windows, a bottom bar on phones.
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -76,13 +76,13 @@ class _ShellState extends State<Shell> {
   static const _tabs = [
     (Icons.style_outlined, Icons.style, 'Today'),
     (Icons.insights_outlined, Icons.insights, 'Stats'),
-    (Icons.park_outlined, Icons.park, 'Tree'),
+    (Icons.favorite_border, Icons.favorite, 'Zero'),
     (Icons.person_outline, Icons.person, 'Profile'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final body = IndexedStack(index: _i, children: [const Home(), const StatsPage(), TreePage(active: _i == 2), const ProfilePage()]);
+    final body = IndexedStack(index: _i, children: [const Home(), const StatsPage(), CompanionPage(active: _i == 2), const ProfilePage()]);
     void go(int i) => setState(() => _i = i);
     if (MediaQuery.sizeOf(context).width >= 840) {
       return Scaffold(
