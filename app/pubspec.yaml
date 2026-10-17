@@ -36,6 +36,7 @@ flutter:
     - assets/zero/
     - assets/zero/model/
     - assets/zero/lib/
+    - assets/zero/voice/
     - assets/fonts/Caveat.ttf
   fonts:
     - family: Inter

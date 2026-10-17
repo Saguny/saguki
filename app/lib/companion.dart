@@ -119,10 +119,11 @@ class _CompanionPageState extends State<CompanionPage> {
                   initialUrlRequest: URLRequest(url: WebUri('http://127.0.0.1:47811/zero/index.html?app')),
                   initialSettings: InAppWebViewSettings(
                     transparentBackground: true,
+                    mediaPlaybackRequiresUserGesture: false, // she talks without a tap first
                     supportZoom: false,
                     disableContextMenu: true,
-                    disableHorizontalScroll: true,
-                    disableVerticalScroll: true,
+                    // No disable*Scroll: on Android those swallow every touch move, so head rubs
+                    // never reach the page. The page is overflow:hidden and doesn't scroll anyway.
                     overScrollMode: OverScrollMode.NEVER,
                   ),
                   onWebViewCreated: (c) => _web = c,

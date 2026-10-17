@@ -10,6 +10,7 @@ import 'stats_page.dart';
 import 'sync.dart';
 import 'theme.dart';
 import 'transfer_ui.dart';
+import 'update.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,6 +80,12 @@ class _ShellState extends State<Shell> {
     (Icons.favorite_border, Icons.favorite, 'Zero'),
     (Icons.person_outline, Icons.person, 'Profile'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => Updater.checkOnLaunch(context));
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -38,7 +38,7 @@ jobs:
       - name: Build
         working-directory: app
         # arm64 only keeps it ~25 MB; build numbers above local builds so phones accept updates.
-        run: flutter build apk --release --target-platform android-arm64 --build-number $((100 + ${{ github.run_number }}))
+        run: flutter build apk --release --target-platform android-arm64 --build-number $((100 + ${{ github.run_number }})) --dart-define=BUILD=$((100 + ${{ github.run_number }}))
 
       - name: Upload to VPS (served at /download)
         run: |
@@ -49,3 +49,5 @@ jobs:
           SSH="ssh -p ${{ secrets.VPS_PORT || 22 }}"; TARGET="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           $SSH "$TARGET" 'mkdir -p /opt/saguki/apk'
           rsync -z -e "$SSH" app/build/app/outputs/flutter-apk/app-release.apk "$TARGET:/opt/saguki/apk/saguki.apk"
+          # After the APK, so the in-app updater never offers a build that isn't there yet.
+          $SSH "$TARGET" "echo $((100 + ${{ github.run_number }})) > /opt/saguki/apk/saguki.apk.build"

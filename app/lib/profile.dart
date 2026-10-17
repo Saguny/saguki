@@ -17,6 +17,7 @@ import 'stats_page.dart';
 import 'sync.dart';
 import 'theme.dart';
 import 'transfer_ui.dart';
+import 'update.dart';
 
 /// Synced profile + settings (the `prefs` table), mirrored here for synchronous reads.
 final prefs = ValueNotifier<Map<String, String>>({});
@@ -238,6 +239,12 @@ class ProfilePage extends StatelessWidget {
                   ),
                   ListTile(title: Text('Import Anki or Saguki file…', style: T.body), onTap: () => importFile(context)),
                   ListTile(title: Text('Export everything (.sgki)', style: T.body), onTap: () => exportFile(context)),
+                  if (canUpdate)
+                    ListTile(
+                      title: Text('Check for updates', style: T.body),
+                      trailing: Text(appBuild == 0 ? 'Dev build' : 'Build $appBuild', style: T.subhead),
+                      onTap: () => Updater.checkNow(context),
+                    ),
                 ]),
                 const SizedBox(height: 8),
                 Padding(

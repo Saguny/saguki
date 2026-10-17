@@ -38,3 +38,5 @@ Name: "{userdesktop}\Saguki"; Filename: "{app}\saguki.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\saguki.exe"; Description: "Open Saguki"; Flags: nowait postinstall skipifsilent
+; The in-app updater runs setup with /VERYSILENT and quits; reopen the app afterwards.
+Filename: "{app}\saguki.exe"; Flags: nowait; Check: WizardSilent

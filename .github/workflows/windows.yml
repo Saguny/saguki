@@ -22,7 +22,7 @@ jobs:
 
       - name: Build
         working-directory: app
-        run: flutter build windows --release --build-number $((100 + ${{ github.run_number }}))
+        run: flutter build windows --release --build-number $((100 + ${{ github.run_number }})) --dart-define=BUILD=$((100 + ${{ github.run_number }}))
 
       - name: Package
         working-directory: app
@@ -46,3 +46,4 @@ jobs:
           ssh -p "$PORT" "$TARGET" 'mkdir -p /opt/saguki/apk'
           scp -P "$PORT" app/build/installer/saguki-setup.exe "$TARGET:/opt/saguki/apk/saguki-setup.exe.tmp"
           ssh -p "$PORT" "$TARGET" 'mv /opt/saguki/apk/saguki-setup.exe.tmp /opt/saguki/apk/saguki-setup.exe'
+          ssh -p "$PORT" "$TARGET" "echo $((100 + ${{ github.run_number }})) > /opt/saguki/apk/saguki-setup.exe.build"

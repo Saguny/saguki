@@ -17,9 +17,13 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
 #noteSmall{font-size:19px;line-height:1.05;color:#4d4369;margin-top:2px}
 #dresser{position:fixed;z-index:2;right:-14px;bottom:-20px;width:min(52vw,240px);cursor:pointer;filter:drop-shadow(0 -6px 18px rgba(0,0,0,.5));transition:transform .2s}
 #dresser:active{transform:translateY(2px)}
-#sbtn{position:fixed;z-index:3;top:16px;right:14px;padding:6px 8px;font-size:12px;color:var(--text3);cursor:pointer}
+#sbtn{position:fixed;z-index:3;top:16px;right:52px;padding:6px 8px;font-size:12px;color:var(--text3);cursor:pointer}
 #bubble{position:fixed;left:50%;top:104px;transform:translate(-50%,6px);max-width:min(78vw,320px);padding:10px 14px;border-radius:14px;background:rgba(30,28,38,.92);border:1px solid var(--border);font-size:15px;line-height:1.35;text-align:center;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}
 #bubble.on{opacity:1;transform:translate(-50%,0)}
+#bubble .zh{font-size:17px;font-family:Inter,"Noto Sans SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif}
+#bubble .en{font-size:12px;color:var(--text2);margin-top:2px}
+#mute{position:fixed;z-index:3;top:12px;right:10px;width:36px;height:36px;display:grid;place-items:center;color:var(--text3);cursor:pointer}
+#mute svg{width:20px;height:20px}#mute .x{display:none}#mute.off .x{display:inline}#mute.off .w{display:none}
 #zz{position:fixed;font-weight:600;color:var(--accent);opacity:0;pointer-events:none;transition:opacity 1s}
 #zz span{position:absolute;animation:zz 3s infinite ease-out;opacity:0}
 @keyframes zz{0%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:.9}100%{opacity:0;transform:translate(22px,-46px) scale(1.1)}}
@@ -49,6 +53,7 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
 <script src="lib/live2dcubismcore.min.js"></script><!-- Cubism Core 5.1 (Live2D) -->
 <script src="lib/pixi.min.js"></script><!-- pixi.js 6.5.10 -->
 <script src="lib/cubism4.min.js"></script><!-- pixi-live2d-display 0.4.0 -->
+<script src="lines.js"></script>
 </head><body>
 <div id="stage"></div><div id="fade"></div>
 <div id="note"><div id="noteBig"></div><div id="noteSmall"></div></div>
@@ -92,6 +97,7 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
   <path d="M50 128h20" stroke="#000" stroke-opacity=".6" stroke-width="2"/>
 </svg>
 <div id="sbtn">sim</div>
+<div id="mute" title="Voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="w" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="x" d="m16 9 6 6m0-6-6 6"/></svg></div>
 <div class="sheet" id="wsheet"><div class="grab"></div><h3>Her closet</h3><div id="wgrid"></div></div>
 <div class="sheet" id="ssheet"><div class="grab"></div><h3>Simulate study state</h3><div id="sim"></div></div>
 <script>
@@ -131,46 +137,34 @@ function mood() {
   if (late()) return 'bedtime';
   return S.today >= 150 ? 'proud' : 'happy';
 }
-const POOLS = {
-  sleepy: ['zz… oh. {due} waiting.', '*yawn* …morning?', 'five more minutes…', 'I dreamt about flashcards again.', 'wake me up when you start.'],
-  bedtime: ["it's {hour}am. go to bed.", '…the cards will still be here tomorrow.', '*yawn* sleep is studying too, you know.', 'you, bed, now.'],
-  cheer: ["{due} left. you've got this.", "you're doing great, keep going!", 'one card at a time~', '{today} done already!', "don't stop now ♡", "I'm watching. no slacking."],
-  almost: ['only {due} left!!', 'almost there!', 'finish strong!', 'so close~'],
-  happy: ['all done today! ♡', 'you did it~', 'same time tomorrow?', "I'm proud of you.", '{today} cards. not bad~'],
-  proud: ['{today} cards?! who ARE you.', "okay, that's actually impressive.", 'my study partner is the best ♡', "you're unstoppable today."],
-  reunion: ['…you came back.', 'I thought you forgot about me.', "let's do this together, okay?", "I'm still a little mad. …keep going."],
-  lonely: ["you didn't come yesterday…", 'I waited, you know.', "…I'm not mad. just lonely.", '{due} cards missed you too.'],
-  teary: ['two days…', 'did I do something wrong?', '*sniff* the cards piled up. {due} now.', "I kept your spot warm. …it's cold now."],
-  angry: ['{days} days. hmph.', 'oh, NOW you show up?', "don't talk to me.", '{due} cards. all your fault.', "I'm not speaking to you. …hmph."],
-  sulky: ['…fine. I forgive you.', "but you're doing your cards. ALL of them.", "don't make me wait like that again.", '…I missed you, idiot.'],
-  cold: ['…', 'oh. it\'s you.', '{days} days.', "I stopped counting. …no I didn't. {days} days.", 'do whatever you want.'],
-  pat: ['ehehe', '♡', 'mm~', 'more pats?', 'hehe, stop it~'],
-  patCheer: ['pats after cards!', 'ehehe… okay, back to work.', '♡ now go study'],
-  patSad: ["…you're here now.", '*sniff* …okay.', "don't leave that long again.", '…one more.'],
-  patSulky: ['…hmph ♡', '…only a little.', "I'm still mad. …don't stop."],
-  rub: ['mm~', 'ehehe… that feels nice', '♡♡♡', 'a little to the left… ehehe', "don't stop~", 'I could get used to this…'],
-  rubCat: ['nya~ …I did NOT just say that.', '*purr* …wait.', 'nya… ♡'],
-  rubSad: ["…okay. I'm okay now.", '*sniff* …thank you.', 'stay a bit longer?'],
-  rubSulky: ["…hmph. …don't stop.", "…I'm still mad. …a little.", '…this is cheating.'],
-  rubSleepy: ["mm… that's not helping me wake up…", 'zz… ehehe…', '…five more rubs…'],
-  rubAngry: ['hmph.', '…', "…don't think this works on me.", "…it's working a little."],
-  rubStop: ["…eh? why'd you stop?", 'ehehe. thanks ♡', '…more later?'],
-  patCold: ["don't.", '…', '{days} days, and you want to pat me?', 'stop.'],
-  poke: ['!?', 'h-hey!', 'eyes up here.', '…pervert.', 'excuse me??'],
-  pokeSad: ['…?', "that's not where pats go."],
-  pokeAngry: ['excuse me?!', 'absolutely not.', "you've got some nerve."],
-  pokeCold: ['no.', '…', "don't."],
-  sing: ['♪ la la la~', '♪ kanji, kana, flashcards~', '♪ hmm hmm hmm~'],
-  outfit: ['how do I look?', 'new look ♡', 'hehe', 'cute, right?'],
-};
 const lastLine = {};
-function pick(pool) { // random line, never the same one twice in a row
-  const ls = POOLS[pool], prev = lastLine[pool] ?? (Math.random() * ls.length | 0), i = ls.length < 2 ? 0 : (prev + 1 + (Math.random() * (ls.length - 1) | 0)) % ls.length;
+function pick(pool) { // random line [pool, i], never the same one twice in a row
+  const ls = LINES[pool], prev = lastLine[pool] ?? (Math.random() * ls.length | 0), i = ls.length < 2 ? 0 : (prev + 1 + (Math.random() * (ls.length - 1) | 0)) % ls.length;
   lastLine[pool] = i;
-  return ls[i].replace('{due}', `${S.due.toLocaleString()} card${S.due === 1 ? '' : 's'}`).replace('{today}', S.today.toLocaleString())
-    .replace(/\{days\}/g, S.missed).replace('{hour}', S.hour || 12);
+  return [pool, i];
 }
-const line = md => md === 'sleepy' && !S.due ? 'zz… nothing due. back to sleep.' : pick(md);
+const line = md => pick(md === 'sleepy' && !S.due ? 'nothingDue' : md);
+const HOLE = /\{(due|today|days|hour)([张天点])\}/g, SILENT = /[♡♪～~…！？!?。，、,.\s]/g;
+const UNIT = { 张: ['zhang', 999], 天: ['tian', 99], 点: ['dian', 23] };
+const val = k => ({ due: S.due, today: S.today, days: S.missed, hour: S.hour })[k];
+function render([pool, i]) {
+  const [zh, en] = LINES[pool][i];
+  return { zh: zh.replace(HOLE, (_, k, u) => val(k) + u), en: en.replace(/\{(due|today|days|hour)\}/g, (_, k) => val(k).toLocaleString()) };
+}
+// the clips that say a line, in order: must match the split in tool/zero_voice.py
+function voiceClips([pool, i]) {
+  const zh = LINES[pool][i][0], urls = [];
+  let k = 0, from = 0;
+  const part = text => { if (text.replace(SILENT, '')) urls.push(`voice/${pool}_${i}_${k}.mp3`); k++; };
+  for (const m of zh.matchAll(HOLE)) {
+    part(zh.slice(from, m.index));
+    const [name, max] = UNIT[m[2]], n = val(m[1]);
+    urls.push(`voice/${name}_${n > max ? 'many' : n}.mp3`);
+    from = m.index + m[0].length;
+  }
+  part(zh.slice(from));
+  return urls;
+}
 
 // ---------- pixi + model ----------
 const app = new PIXI.Application({ resizeTo: window, backgroundAlpha: 0, antialias: true, autoDensity: true, resolution: Math.min(devicePixelRatio, 2) });
@@ -264,7 +258,9 @@ function frame(dt) {
   W.ParamEyeBallX = playing ? 0 : md === 'sulky' ? 0.7 : clamp(gaze.x * 1.4, -1, 1); // sulky: head away, eyes on you
   W.ParamEyeBallY = playing ? -0.5 : clamp(-gaze.y * 1.1, -0.5, 0.5);
   W.ParamBreath = breath;
-  W.ParamMouthOpenY = Math.max(yawn, R.talk > 0 ? Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3)) * (R.sing ? 0.9 : 0.7) : 0);
+  mouth += (clamp(voiceLevel() * 7, 0, 1) - mouth) * (1 - Math.exp(-dt * 30));
+  const flap = !playing.length && R.talk > 0 ? Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3)) * (R.sing ? 0.9 : 0.7) : 0;
+  W.ParamMouthOpenY = Math.max(yawn, mouth, flap);
 
   // mood faces
   let open = 1, smile = 0, form = 0.2, brow = 0;
@@ -326,13 +322,71 @@ window.ff = (secs = 2) => { for (let i = 0; i < secs * 60; i++) { frame(1 / 60);
 
 // ---------- talking ----------
 let bubbleTimer;
-function say(text, secs = 3.5) {
-  const b = document.getElementById('bubble');
-  b.textContent = text; b.classList.add('on');
-  R.talk = text === '…' ? 0 : Math.min(1.6, 0.25 + text.length * 0.045);
+function say(ln, secs = 3.5) {
+  const { zh, en } = render(ln), b = document.getElementById('bubble');
+  b.innerHTML = '<div class="zh"></div><div class="en"></div>';
+  b.firstChild.textContent = zh; b.lastChild.textContent = en; b.classList.add('on');
+  R.talk = zh === '……' ? 0 : Math.min(1.6, 0.25 + zh.length * 0.12); // mouth flaps when she's muted
   chatAt = Math.max(chatAt, t + 15);
-  clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => b.classList.remove('on'), secs * 1000);
+  const hide = s => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => b.classList.remove('on'), s * 1000); };
+  hide(secs);
+  speak(voiceClips(ln)).then(d => { if (d) { R.talk = d; hide(Math.max(secs, d + 0.8)); } });
 }
+
+// ---------- voice: Xiaoyi clips (voice/, made by tool/zero_voice.py) played back to back ----------
+let actx, analyser, levels, playing = [], speakId = 0, muted = !!store.muted, mouth = 0;
+const buffers = {};
+function audio() {
+  if (!actx) {
+    actx = new AudioContext(); analyser = actx.createAnalyser(); analyser.fftSize = 512;
+    levels = new Float32Array(analyser.fftSize); analyser.connect(actx.destination);
+  }
+  return actx;
+}
+function trim(buf) { // the clips carry ~0.1 s of silence at each end; joined lines sound choppy with it
+  const d = buf.getChannelData(0), pad = buf.sampleRate * 0.02 | 0;
+  let a = 0, b = d.length - 1;
+  while (a < b && Math.abs(d[a]) < 0.01) a++;
+  while (b > a && Math.abs(d[b]) < 0.01) b--;
+  a = Math.max(0, a - pad); b = Math.min(d.length, b + pad);
+  const out = actx.createBuffer(1, b - a, buf.sampleRate);
+  out.copyToChannel(d.subarray(a, b), 0);
+  return out;
+}
+const clip = url => buffers[url] ??= fetch(url).then(r => r.ok ? r.arrayBuffer() : Promise.reject(url))
+  .then(b => audio().decodeAudioData(b)).then(trim).catch(() => null);
+async function speak(urls) { // resolves to how long she talks (0: muted / nothing to say)
+  const id = ++speakId;
+  for (const s of playing) try { s.stop(); } catch {}
+  playing = [];
+  if (muted || !urls.length) return 0;
+  const bufs = (await Promise.all(urls.map(clip))).filter(Boolean);
+  if (id !== speakId || !bufs.length) return 0;
+  const ctx = audio();
+  if (ctx.state === 'suspended') ctx.resume();
+  let at = ctx.currentTime + 0.03;
+  for (const b of bufs) {
+    const src = ctx.createBufferSource();
+    src.buffer = b; src.connect(analyser); src.start(at); at += b.duration + 0.04;
+    src.onended = () => { playing = playing.filter(x => x !== src); };
+    playing.push(src);
+  }
+  return at - ctx.currentTime;
+}
+function voiceLevel() {
+  if (!playing.length) return 0;
+  analyser.getFloatTimeDomainData(levels);
+  let sum = 0;
+  for (const v of levels) sum += v * v;
+  return Math.sqrt(sum / levels.length);
+}
+addEventListener('pointerdown', () => actx?.state === 'suspended' && actx.resume(), true); // autoplay rules
+const muteBtn = document.getElementById('mute');
+muteBtn.classList.toggle('off', muted);
+muteBtn.onclick = () => {
+  muted = !muted; store.muted = muted; save(); muteBtn.classList.toggle('off', muted);
+  if (muted) speak([]); else say(pick('pat'), 1.8);
+};
 
 // ---------- touch ----------
 const view = app.view;
@@ -370,13 +424,13 @@ function rub(d, x) {
   const talk = pool => { if (t > rubLine) { rubLine = t + rnd(3.5, 5.5); say(pick(pool), 2.2); } };
   if (md === 'cold') { // she leans away; a long enough rub cracks her for a second
     dodgeDir = rubX < 0 ? -1 : 1; R.dodge = 1.2;
-    if (rubFor > 12000 && !R.hurt) { R.hurt = 3; rubFor = 0; rubLine = t + 5; return say('…why are you being nice now.'); }
+    if (rubFor > 12000 && !R.hurt) { R.hurt = 3; rubFor = 0; rubLine = t + 5; return say(pick('coldCrack')); }
     return talk('patCold');
   }
   if (md === 'angry') {
     forgive += d / 2500;
-    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; hud(); rubLine = t + 4; return say('…fine. you win. I forgive you.'); }
-    if (t > rubLine) { rubLine = t + 3.5; say(POOLS.rubAngry[Math.min(3, forgive / 1.5 | 0)], 2); }
+    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; hud(); rubLine = t + 4; return say(pick('forgiveRub')); }
+    if (t > rubLine) { rubLine = t + 3.5; say(['rubAngry', Math.min(3, forgive / 1.5 | 0)], 2); }
     return;
   }
   if (rubFor > 6000 && !sleepy && md !== 'lonely' && md !== 'teary') R.heart = 0.5;
@@ -390,21 +444,21 @@ function pat(side) {
   const first = pats.length === 1;
   if ((md === 'sleepy' || md === 'bedtime') && !R.awake) {
     R.awake = 12; R.bang = 1.2; R.sweat = 1.2;
-    return say(md === 'bedtime' ? "!! …I wasn't asleep. you should be, though." : S.due ? `!! I'm up. ${S.due} cards, let's go.` : "!! I'm up, I'm up.");
+    return say(pick(md === 'bedtime' ? 'wakeBed' : S.due ? 'wakeDue' : 'wakeNone'));
   }
   if (md === 'cold') { // flinches away, every so often the hurt shows through
     dodgeDir = side; R.dodge = 1.4; forgive++;
-    if (forgive % 5 === 0) { R.hurt = 3; return say('…I really waited for you, you know.'); }
+    if (forgive % 5 === 0) { R.hurt = 3; return say(pick('coldHurt')); }
     return first && say(pick('patCold'), 2);
   }
   if (md === 'angry') {
     forgive++;
-    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; R.bang = 0.8; hud(); return say('…fine. I forgive you. but you do your cards.'); }
+    if (forgive >= 6) { forgiven = true; store.forgiven = S.day; R.blush = 3; R.bang = 0.8; hud(); return say(pick('forgivePat')); }
     if (forgive <= 3) { dodgeDir = side; R.dodge = 1.2; R.huff = 1.5; }
-    return say(['hmph.', "don't touch me.", '…you think a pat fixes this?', '…', '…keep going.'][forgive - 1], 2);
+    return say(['angryPat', forgive - 1], 2);
   }
   R.tilt = side * 1.2;
-  if (pats.length >= 5 && md !== 'lonely' && md !== 'teary') { R.dizzy = 3; R.blush = R.heart = 0; pats = []; return say('s-stop, the room is spinning…'); }
+  if (pats.length >= 5 && md !== 'lonely' && md !== 'teary') { R.dizzy = 3; R.blush = R.heart = 0; pats = []; return say(pick('dizzy')); }
   if (R.dizzy) return;
   if (md === 'lonely' || md === 'teary') { R.blush = 2; R.hurt = md === 'teary' ? 2.5 : 0; return first && say(pick('patSad'), 2.2); }
   if (md === 'sulky') { R.blush = 2.5; return first && say(pick('patSulky'), 2); }
@@ -415,7 +469,7 @@ function pat(side) {
 function poke() {
   const md = mood();
   pokes = pokes.filter(x => t - x < 4); pokes.push(t);
-  if (pokes.length >= 3 && md !== 'cold') { pokes = []; R.turn = 5; R.huff = 2; R.blush = 2; return say("okay, that's it. I'm ignoring you."); }
+  if (pokes.length >= 3 && md !== 'cold') { pokes = []; R.turn = 5; R.huff = 2; R.blush = 2; return say(pick('ignore')); }
   if (md === 'cold') { R.squint = 1.5; return say(pick('pokeCold'), 1.6); }
   if (md === 'angry') { R.huff = 1.5; R.bang = 1; return say(pick('pokeAngry'), 1.8); }
   if (md === 'lonely' || md === 'teary') { R.qmark = 1.5; return say(pick('pokeSad'), 1.8); }
@@ -430,7 +484,7 @@ function hud() {
   const [big, small] = {
     sleepy: S.due ? [n(S.due), 'cards waiting'] : ['0', 'nothing due ♡'],
     bedtime: S.today ? [n(S.today), 'now sleep!!'] : [n(S.due), 'tomorrow…'],
-    cheer: [n(S.today), `done · ${n(S.due)} to go`],
+    cheer: [`${n(S.due)} left`, `${n(S.today)} done today`],
     almost: [`${n(S.due)} left`, 'almost!!'],
     happy: [n(S.today), 'cards today ♡'],
     proud: [`${n(S.today)}!!`, 'cards today ★'],
@@ -463,7 +517,7 @@ document.getElementById('wgrid').onclick = e => {
     if (u[4]) for (const x of UNLOCKS) if (x[4] === u[4]) worn.delete(x[0]);
     worn.add(u[0]);
     const md = mood();
-    if (md === 'cold' || md === 'angry') say(md === 'cold' ? '…' : "dressing me up won't fix it.", 1.8);
+    if (md === 'cold' || md === 'angry') say(md === 'cold' ? ['cold', 0] : pick('outfitAngry'), 1.8);
     else { R.bang = 0.8; say(pick('outfit'), 1.8); }
   }
   wardrobe();
@@ -475,7 +529,7 @@ document.getElementById('sim').oninput = e => {
   S[k] = +e.target.value; document.getElementById('v_' + k).textContent = S[k].toLocaleString();
   if (k === 'missed' || (k === 'today' && S.today > 0)) { forgive = 0; forgiven = false; }
   const now = UNLOCKS.filter(unlocked);
-  if (now.length > was) { const u = now[now.length - 1]; toast(`Unlocked: ${u[1]}`); worn.add(u[0]); if (u[4]) for (const x of UNLOCKS) if (x[4] === u[4] && x !== u) worn.delete(x[0]); R.bang = 1.5; say(`ooh, ${u[1].toLowerCase()}!`); }
+  if (now.length > was) { const u = now[now.length - 1]; toast(`Unlocked: ${u[1]}`); worn.add(u[0]); if (u[4]) for (const x of UNLOCKS) if (x[4] === u[4] && x !== u) worn.delete(x[0]); R.bang = 1.5; say(pick('unlock_' + u[0])); }
   else if (mood() !== before) say(line(mood()));
   hud(); wardrobe();
 };
@@ -494,7 +548,7 @@ window.zeroState = st => {
   if (now.length > seen) {
     const fresh = now.slice(seen), u = fresh[fresh.length - 1];
     for (const x of fresh) { if (x[4]) for (const y of UNLOCKS) if (y[4] === x[4]) worn.delete(y[0]); worn.add(x[0]); }
-    toast(`Unlocked: ${u[1]}`); R.bang = 1.5; say(`ooh, ${u[1].toLowerCase()}!`);
+    toast(`Unlocked: ${u[1]}`); R.bang = 1.5; say(pick('unlock_' + u[0]));
   } else if (first) { greeted = true; greetedAt = performance.now(); say(line(mood())); }
   else if (mood() !== before) say(line(mood()));
   store.seen = now.length;

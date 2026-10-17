@@ -40,6 +40,7 @@ Future<void> main(List<String> args) async {
     ..get('/health', (Request _) => Response.ok('ok'))
     ..get('/download', (Request _) => download('saguki.apk', 'application/vnd.android.package-archive'))
     ..get('/download/windows', (Request _) => download('saguki-setup.exe', 'application/vnd.microsoft.portable-executable'))
+    ..get('/version', (Request _) async => json({'android': await buildOf('saguki.apk'), 'windows': await buildOf('saguki-setup.exe')}))
     ..post('/login', login)
     ..post('/sync', sync)
     ..post('/avatar', avatar)
@@ -185,6 +186,12 @@ Future<Response> download(String name, String type) async {
     'content-disposition': 'attachment; filename="$name"',
     'cache-control': 'no-store',
   });
+}
+
+/// CI writes `<name>.build` (the build number) next to each upload; the in-app updater compares it.
+Future<int?> buildOf(String name) async {
+  final f = File('${env('APK_DIR') ?? '/apk'}/$name.build');
+  return await f.exists() ? int.tryParse((await f.readAsString()).trim()) : null;
 }
 
 /// GET /dict?lang=ja&q=勉強 → {entries: [{term, reading, senses}]}
