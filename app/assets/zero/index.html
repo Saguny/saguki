@@ -321,8 +321,9 @@ window.closeup = (on = true) => { if (!on) return fit(); const s = innerWidth / 
 window.ff = (secs = 2) => { for (let i = 0; i < secs * 60; i++) { frame(1 / 60); m.update(1000 / 60); app.render(); } };
 
 // ---------- talking ----------
-let bubbleTimer;
+let bubbleTimer, active = true;
 function say(ln, secs = 3.5) {
+  if (!active) return; // the app still pushes state while her tab is hidden; she stays quiet
   const { zh, en } = render(ln), b = document.getElementById('bubble');
   b.innerHTML = '<div class="zh"></div><div class="en"></div>';
   b.firstChild.textContent = zh; b.lastChild.textContent = en; b.classList.add('on');
@@ -549,14 +550,15 @@ window.zeroState = st => {
     const fresh = now.slice(seen), u = fresh[fresh.length - 1];
     for (const x of fresh) { if (x[4]) for (const y of UNLOCKS) if (y[4] === x[4]) worn.delete(y[0]); worn.add(x[0]); }
     toast(`Unlocked: ${u[1]}`); R.bang = 1.5; say(pick('unlock_' + u[0]));
-  } else if (first) { greeted = true; greetedAt = performance.now(); say(line(mood())); }
+  } else if (first && active) { greeted = true; greetedAt = performance.now(); say(line(mood())); }
   else if (mood() !== before) say(line(mood()));
   store.seen = now.length;
   hud(); wardrobe();
 };
 // the app stops her ticker while her tab is hidden, and she says hi again if you've been gone a while
 window.zeroActive = on => {
-  if (!on) { app.ticker.stop(); closeSheets(); return; }
+  active = on;
+  if (!on) { app.ticker.stop(); closeSheets(); speak([]); document.getElementById('bubble').classList.remove('on'); return; }
   app.ticker.start();
   if (greeted && performance.now() - greetedAt > 90e3) { greetedAt = performance.now(); setTimeout(() => say(line(mood())), 400); }
 };

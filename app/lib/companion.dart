@@ -129,8 +129,9 @@ class _CompanionPageState extends State<CompanionPage> {
                   onWebViewCreated: (c) => _web = c,
                   onLoadStop: (c, _) {
                     _loaded = true;
-                    _push();
+                    // Before the first push: if you left her tab mid-load, she mustn't greet you from the background.
                     c.evaluateJavascript(source: 'zeroActive(${widget.active})');
+                    _push();
                   },
                 ),
               ),
