@@ -37,6 +37,7 @@ flutter:
     - assets/zero/model/
     - assets/zero/lib/
     - assets/zero/voice/
+    - assets/zero/peek/
     - assets/starter/
     - assets/fonts/Caveat.ttf
   fonts:

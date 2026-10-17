@@ -8,7 +8,8 @@
 :root{--bg:#0E0D12;--s1:#16151C;--s2:#1E1C26;--s3:#272433;--border:#2E2B3A;--text:#ECEAF2;--text2:#A9A5B8;--text3:#6F6B80;--accent:#B9A7FF;--accentC:#2C2547;--onAccent:#17132A}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:Inter,system-ui,sans-serif;color:var(--text);-webkit-tap-highlight-color:transparent;user-select:none}
-#stage{position:fixed;inset:0;background:radial-gradient(ellipse 70% 45% at 50% 38%,#231d3a 0%,#15131d 55%,var(--bg) 100%)}
+#stage{position:fixed;inset:0;background:radial-gradient(ellipse 70% 45% at 50% 38%,var(--sky,#231d3a) 0%,#15131d 55%,var(--bg) 100%)}
+#glow{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity 2s;background:radial-gradient(circle at 92% 62%,rgba(255,190,120,.16),transparent 45%)} /* her desk lamp, at night */
 #stage canvas{display:block;touch-action:none}
 #fade{position:fixed;left:0;right:0;bottom:0;height:22%;background:linear-gradient(transparent,var(--bg) 85%);pointer-events:none}
 #note{position:fixed;left:16px;top:18px;min-width:96px;max-width:128px;padding:13px 12px 9px;background:linear-gradient(#d9d1ee,#cbc2e3);color:#2a2340;font-family:Caveat,cursive;font-weight:700;transform:rotate(-4deg);transform-origin:50% 0;box-shadow:0 8px 16px rgba(0,0,0,.5);border-radius:2px 2px 6px 2px;pointer-events:none;filter:brightness(.88)}
@@ -17,11 +18,18 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
 #noteSmall{font-size:19px;line-height:1.05;color:#4d4369;margin-top:2px}
 #dresser{position:fixed;z-index:2;right:-14px;bottom:-20px;width:min(52vw,240px);cursor:pointer;filter:drop-shadow(0 -6px 18px rgba(0,0,0,.5));transition:transform .2s}
 #dresser:active{transform:translateY(2px)}
+#plant ellipse{transition:fill 1s}
+.drop{animation:drop 1.1s ease-in forwards;opacity:0}
+@keyframes drop{0%{opacity:0;transform:translateY(-14px)}20%{opacity:.9}100%{opacity:0;transform:translateY(16px)}}
 #sbtn{position:fixed;z-index:3;top:16px;right:52px;padding:6px 8px;font-size:12px;color:var(--text3);cursor:pointer}
 #bubble{position:fixed;left:50%;top:104px;transform:translate(-50%,6px);max-width:min(78vw,320px);padding:10px 14px;border-radius:14px;background:rgba(30,28,38,.92);border:1px solid var(--border);font-size:15px;line-height:1.35;text-align:center;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}
-#bubble.on{opacity:1;transform:translate(-50%,0)}
+#bubble.on{opacity:1;transform:translate(-50%,0);pointer-events:auto;cursor:pointer}
 #bubble .zh{font-size:17px;font-family:Inter,"Noto Sans SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif}
-#bubble .en{font-size:12px;color:var(--text2);margin-top:2px}
+#bubble .en{font-size:12px;color:var(--text2);margin-top:2px;transition:filter .3s}
+#bubble .en.hide{filter:blur(4px)} /* heard it enough: try without the English (tap to peek) */
+#bubble .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px}
+#bubble .chips button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--s3);color:var(--text);cursor:pointer}
+#bubble .chips button.ok{background:var(--accentC);color:var(--accent);border-color:var(--accent)}
 #mute{position:fixed;z-index:3;top:12px;right:10px;width:36px;height:36px;display:grid;place-items:center;color:var(--text3);cursor:pointer}
 #mute svg{width:20px;height:20px}#mute .x{display:none}#mute.off .x{display:inline}#mute.off .w{display:none}
 #zz{position:fixed;font-weight:600;color:var(--accent);opacity:0;pointer-events:none;transition:opacity 1s}
@@ -55,7 +63,7 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
 <script src="lib/cubism4.min.js"></script><!-- pixi-live2d-display 0.4.0 -->
 <script src="lines.js"></script>
 </head><body>
-<div id="stage"></div><div id="fade"></div>
+<div id="stage"></div><div id="glow"></div><div id="fade"></div>
 <div id="note"><div id="noteBig"></div><div id="noteSmall"></div></div>
 <div id="bubble"></div>
 <div id="zz"><span style="animation-delay:0s">z</span><span style="left:10px;top:-8px;font-size:1.3em;animation-delay:1s">z</span><span style="left:20px;top:-18px;font-size:1.6em;animation-delay:2s">Z</span></div>
@@ -66,16 +74,8 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
     <linearGradient id="dd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26212d"/><stop offset="1" stop-color="#1d1923"/></linearGradient>
     <linearGradient id="pot" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5a5168"/><stop offset="1" stop-color="#3c3548"/></linearGradient>
   </defs>
-  <!-- plant -->
-  <g fill="#6f9479">
-    <ellipse cx="150" cy="22" rx="5" ry="14" transform="rotate(-28 150 22)"/>
-    <ellipse cx="166" cy="18" rx="5" ry="15" transform="rotate(18 166 18)"/>
-    <ellipse cx="141" cy="34" rx="4.5" ry="11" transform="rotate(-62 141 34)"/>
-  </g>
-  <g fill="#86ab8f">
-    <ellipse cx="158" cy="16" rx="5" ry="16" transform="rotate(-4 158 16)"/>
-    <ellipse cx="175" cy="31" rx="4.5" ry="11" transform="rotate(58 175 31)"/>
-  </g>
+  <!-- plant: a leaf per week of your streak, wilts when you skip days (plant()) -->
+  <g id="plant"></g><g id="drops" fill="#9fc4ff"></g>
   <path d="M143 38h32l-4 20h-24z" fill="url(#pot)"/><rect x="141" y="36" width="36" height="5" rx="2" fill="#625a72"/>
   <!-- books -->
   <rect x="40" y="50" width="58" height="8" rx="1.5" fill="#6d6194"/>
@@ -98,13 +98,15 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:
 </svg>
 <div id="sbtn">sim</div>
 <div id="mute" title="Voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="w" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="x" d="m16 9 6 6m0-6-6 6"/></svg></div>
-<div class="sheet" id="wsheet"><div class="grab"></div><h3>Her closet</h3><div id="wgrid"></div></div>
+<div class="sheet" id="wsheet"><div class="grab"></div><h3>Her closet</h3><p id="close"></p><div id="wgrid"></div></div>
 <div class="sheet" id="ssheet"><div class="grab"></div><h3>Simulate study state</h3><div id="sim"></div></div>
 <script>
 // ---------- study state: the app pushes it in through zeroState(); opened in a browser, sample values + the sim sheet ----------
 const APP = location.search.includes('app');
-const S = APP ? { total: 0, today: 0, due: 0, missed: 0, hour: new Date().getHours(), day: '' }
-  : { total: 640, today: 0, due: 42, missed: 0, hour: new Date().getHours(), day: '' }; // missed = whole days skipped before today
+// missed = whole days skipped before today, again = today's Again answers, words = [{t, m}] you studied lately
+const S = APP ? { total: 0, today: 0, due: 0, missed: 0, again: 0, streak: 0, words: [], hour: new Date().getHours(), day: '' }
+  : { total: 640, today: 0, due: 42, missed: 0, again: 0, streak: 12, hour: new Date().getHours(), day: '',
+      words: [{ t: '謝謝', m: 'thank you' }, { t: '早安', m: 'good morning' }, { t: '對不起', m: 'sorry' }, { t: '再見', m: 'goodbye' }] };
 // what she remembers between visits: outfit, today's forgiveness, how many unlocks you've seen
 let store = {};
 try { store = JSON.parse(localStorage.getItem('zero') || '{}'); } catch {}
@@ -114,6 +116,7 @@ const UNLOCKS = [ // [id, name, total reviews, params, exclusive group]
   ['ears', 'Cat ears', 500, { fase120: 1 }],
   ['coat', 'No jacket', 1500, { fase62: 1 }],
   ['game', 'Game time', 3000, null], // she plays when you're done for the day
+  ['black', 'Black hair', 4000, { fase63: 1 }], // a multiply-color tint, see the renderer patch
   ['down', 'Hair down', 5000, { fase108: 1, fase107: 1 }, 'hair'],
   ['short', 'Short hair', 7500, { fase108: 1, fase109: 1 }, 'hair'],
   ['bun', 'Little bun', 10000, { fase108: 1, fase115: 1 }, 'hair'],
@@ -137,20 +140,35 @@ function mood() {
   if (late()) return 'bedtime';
   return S.today >= 150 ? 'proud' : 'happy';
 }
-const lastLine = {};
-function pick(pool) { // random line [pool, i], never the same one twice in a row
-  const ls = LINES[pool], prev = lastLine[pool] ?? (Math.random() * ls.length | 0), i = ls.length < 2 ? 0 : (prev + 1 + (Math.random() * (ls.length - 1) | 0)) % ls.length;
-  lastLine[pool] = i;
+// A shuffled bag per pool, kept between visits: you hear every line before any comes round again.
+function pick(pool) {
+  const ls = LINES[pool];
+  if (!ls) return null; // a pool from a newer lines.js than the one loaded
+  const bags = store.bag ??= {}, last = store.last ??= {};
+  let bag = (bags[pool] ?? []).filter(i => i < ls.length);
+  if (!bag.length) {
+    bag = [...ls.keys()].sort(() => Math.random() - 0.5);
+    if (bag.length > 1 && bag[bag.length - 1] === last[pool]) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]]; // never twice in a row
+  }
+  const i = bag.pop();
+  bags[pool] = bag; last[pool] = i; save();
   return [pool, i];
 }
 const line = md => pick(md === 'sleepy' && !S.due ? 'nothingDue' : md);
-const HOLE = /\{(due|today|days|hour)([张天点])\}/g, SILENT = /[♡♪～~…！？!?。，、,.\s]/g;
+const HOLE = /\{(?:(due|today|days|hour|did|yday)([张天点])|(word))\}/g, SILENT = /[♡♪～~…！？!?。，、,.「」\s]/g;
 const UNIT = { 张: ['zhang', 999], 天: ['tian', 99], 点: ['dian', 23] };
-const val = k => ({ due: S.due, today: S.today, days: S.missed, hour: S.hour })[k];
+const val = k => ({ due: S.due, today: S.today, days: S.missed, hour: S.hour, did, yday: yday(), word: word?.t ?? '', mean: word?.m ?? '' })[k];
+let did = 0; // reviews you did while she wasn't looking
+let word = null; // {t: term, m: meaning}: the studied word a {word} line is about
 function render([pool, i]) {
   const [zh, en] = LINES[pool][i];
-  return { zh: zh.replace(HOLE, (_, k, u) => val(k) + u), en: en.replace(/\{(due|today|days|hour)\}/g, (_, k) => val(k).toLocaleString()) };
+  return {
+    zh: zh.replace(HOLE, (_, k, u, w) => w ? val('word') : val(k) + u),
+    en: en.replace(/\{(due|today|days|hour|did|yday|word|mean)\}/g, (_, k) => val(k).toLocaleString()),
+  };
 }
+// FNV-1a over code points, same as fnv() in tool/zero_voice.py
+function wordClip(s) { let h = 0x811c9dc5; for (const c of s) h = Math.imul(h ^ c.codePointAt(0), 16777619) >>> 0; return `voice/w_${h.toString(16).padStart(8, '0')}.mp3`; }
 // the clips that say a line, in order: must match the split in tool/zero_voice.py
 function voiceClips([pool, i]) {
   const zh = LINES[pool][i][0], urls = [];
@@ -158,12 +176,181 @@ function voiceClips([pool, i]) {
   const part = text => { if (text.replace(SILENT, '')) urls.push(`voice/${pool}_${i}_${k}.mp3`); k++; };
   for (const m of zh.matchAll(HOLE)) {
     part(zh.slice(from, m.index));
-    const [name, max] = UNIT[m[2]], n = val(m[1]);
-    urls.push(`voice/${name}_${n > max ? 'many' : n}.mp3`);
+    if (m[3]) urls.push(wordClip(val('word'))); // a word that isn't in a starter deck has no clip: skipped
+    else { const [name, max] = UNIT[m[2]], n = val(m[1]); urls.push(`voice/${name}_${n > max ? 'many' : n}.mp3`); }
     from = m.index + m[0].length;
   }
   part(zh.slice(from));
   return urls;
+}
+
+// ---------- her days: a temperament for each, what she remembers, the calendar, how close you two are ----------
+const dayKey = () => (S.day || new Date(Date.now() - 4 * 36e5).toISOString()).slice(0, 10); // after the 4 am rollover
+const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
+const TEMPERS = ['sweet', 'clingy', 'bratty', 'spacey'];
+function temper() { // same all day, different tomorrow
+  if (window.forceTemper) return window.forceTemper;
+  let h = 7;
+  for (const c of dayKey()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TEMPERS[h % TEMPERS.length];
+}
+const level = (l = store.love ?? 0) => l >= 250 ? 3 : l >= 100 ? 2 : l >= 30 ? 1 : 0;
+function love(x, touch) { // touches add at most 3 a day, so closeness comes from showing up, not from tapping
+  const d = dayKey(), before = level();
+  if (touch) {
+    const day = store.loveDay?.d === d ? store.loveDay : (store.loveDay = { d, n: 0 });
+    x = Math.min(x, 3 - day.n); if (x <= 0) return; day.n += x;
+  }
+  store.love = Math.max(0, (store.love ?? 0) + x); save();
+  const now = level();
+  if (now > before) { R.heart = 3; R.blush = 3; setTimeout(() => say(['loveUp', now - 1]), 2600); }
+  wardrobe();
+}
+const mem = store.mem ??= { pats: 0, rubs: 0, pokes: 0 };
+const COUNTS = { pats: [10, 50, 100, 500, 1000], rubs: [10, 50, 200], pokes: [20, 100] };
+const count = k => { mem[k]++; save(); return COUNTS[k].indexOf(mem[k]); }; // which milestone that was, or -1
+function yday() { const p = store.days?.prev; return p && daysBetween(p.d, dayKey()) === 1 ? p.n : 0; }
+const CAL = {
+  '01-01': 'newYear', '02-14': 'valentine', '10-17': 'birthday', '10-31': 'halloween', '12-24': 'xmas', '12-25': 'xmas', // 10-17: the day she moved in
+  '2026-02-17': 'lunar', '2027-02-06': 'lunar', '2028-01-26': 'lunar', '2029-02-13': 'lunar', '2030-02-03': 'lunar',
+  '2026-09-25': 'midautumn', '2027-09-15': 'midautumn', '2028-10-03': 'midautumn', '2029-09-22': 'midautumn', '2030-09-12': 'midautumn',
+};
+const ANNIV = [7, 30, 100, 365];
+const tod = () => S.hour >= 5 && S.hour < 10 ? 'morning' : S.hour >= 18 && S.hour < 23 ? 'evening' : null;
+const rough = () => S.today >= 20 && S.again >= S.today * 0.3; // missed a lot today
+function chatter(md, tp) { // idle talk: mostly her mood, sometimes the day's temperament, how close you are, a word, or yesterday
+  const r = Math.random(), lv = level();
+  if (S.today && S.words?.length && r > 0.86) { word = S.words[Math.random() * S.words.length | 0]; return pick('wordRecall'); }
+  if (tod() && r > 0.78) return pick(tod());
+  if (tp && rough() && r > 0.7) return pick('rough');
+  if (tp && r < 0.25) return pick('temper_' + tp);
+  if (tp && lv && r < 0.4) return pick('love' + lv);
+  if (md === 'sleepy' && yday() >= 10 && r < 0.3) return pick('memYday');
+  return line(md);
+}
+const STREAKS = [7, 30, 100, 365];
+function brag() { // a streak milestone, a new best day, or more than yesterday: once a day each
+  const d = dayKey(), best = store.best ?? 0, yd = yday();
+  if (S.streak < (store.streakSeen ?? 0)) store.streakSeen = 0; // the streak broke: the next 7 is worth a word again
+  const k = STREAKS.filter(x => x <= S.streak).pop();
+  if (k && k > (store.streakSeen ?? 0)) { store.streakSeen = k; save(); R.heart = 3; R.bang = 1; plant(); return ['streak', STREAKS.indexOf(k)]; }
+  store.best = Math.max(best, S.today);
+  if (best >= 30 && S.today > best && store.recDay !== d) { store.recDay = d; save(); R.heart = 2.5; R.bang = 1; return pick('record'); }
+  if (yd >= 10 && S.today > yd && store.beatDay !== d) { store.beatDay = d; save(); R.blush = 2; return pick('beatYday'); }
+  save();
+  return null;
+}
+// what she says when you come in: a holiday, an anniversary, a record, what you did while she wasn't looking,
+// an odd hour for you, else just her mood
+function welcome() {
+  const d = dayKey(), md = mood(), cross = md === 'cold' || md === 'angry';
+  let odd = null, firstToday = store.visitDay !== d;
+  if (firstToday) { // first visit today: is this a strange time for you?
+    store.visitDay = d;
+    const hs = store.hours ?? [], usual = hs.length >= 5 ? [...hs].sort((a, b) => a - b)[hs.length >> 1] : null;
+    store.hours = [...hs, S.hour].slice(-14);
+    const dh = usual == null ? 0 : ((S.hour - usual + 36) % 24) - 12;
+    odd = dh <= -4 ? 'visitEarly' : dh >= 4 ? 'visitLate' : null;
+  }
+  did = S.total - (store.seenTotal ?? S.total);
+  const away = (Date.now() - (store.seenAt ?? Date.now())) / 6e4;
+  store.seenTotal = S.total; store.seenAt = Date.now(); save();
+  const p = store.promise; // you promised yesterday-you'd come: did you?
+  if (p && p !== d) { delete store.promise; save(); if (daysBetween(p, d) === 1) { love(2); R.heart = 2.5; return pick('promiseKept'); } R.hurt = 2.5; return pick('promiseBroke'); }
+  if (cross) return line(md);
+  const h = CAL[d] ?? CAL[d.slice(5)];
+  if (h && store.calDay !== d) { store.calDay = d; save(); R.blush = 2.5; if (h === 'birthday' || h === 'valentine') R.heart = 2.5; return pick('cal_' + h); }
+  store.met ??= d;
+  const a = ANNIV.filter(x => x <= daysBetween(store.met, d)).pop();
+  if (a && a > (store.anniv ?? 0)) { store.anniv = a; save(); R.heart = 2.5; return ['anniv', ANNIV.indexOf(a)]; }
+  const b = brag(); if (b) return b;
+  if (did > 0 && rough() && store.roughDay !== d) { store.roughDay = d; save(); return pick('rough'); }
+  if (did > 0) { R.bang = did >= 100 ? 1.2 : 0; return pick(did >= 60 && away >= 40 ? 'sessionTired' : did >= 100 ? 'sessionBig' : did >= 20 ? 'sessionGood' : 'sessionSmall'); }
+  if (odd) return pick(odd);
+  if (firstToday && tod() && !['sleepy', 'bedtime'].includes(md)) return pick(tod());
+  return line(md);
+}
+// caught in the act: some visits you walk in on her busy with something, and she notices you a moment later
+function catchHer() {
+  const md = mood();
+  if (['angry', 'cold', 'sleepy', 'bedtime'].includes(md) || Math.random() < 0.35) return false; // asleep, she's just dozing
+  const opts = md === 'lonely' || md === 'teary' ? ['mope'] : ['sing', 'swab', 'swab'];
+  if ((md === 'happy' || md === 'proud') && worn.has('game') && unlocked(UNLOCKS.find(u => u[0] === 'game'))) opts.push('game', 'game');
+  caught = { what: opts[Math.random() * opts.length | 0], at: t + rnd(1.6, 2.6) };
+  if (caught.what === 'sing') say(pick('sing'), 2.5);
+  return true;
+}
+function notice() {
+  const what = caught.what; caught = null;
+  R.sing = 0; if (what === 'game') { gameT = -1; gameAt = t + 15; }
+  R.bang = 1.2; R.sweat = 1.6; R.blush = what === 'mope' ? 0 : 2; gazeAt({ x: 0, y: 0 }); glanceAt = t + 2.5;
+  say(pick('caught_' + what), 2.2).then(d => setTimeout(() => say(welcome()), (Math.max(d, 1.8) + 0.5) * 1000));
+}
+let greeted = false, greetedAt = 0; // ms, wall clock (t stops while the tab is hidden)
+function greet() {
+  greeted = true; greetedAt = performance.now();
+  if (!catchHer()) say(welcome());
+  later();
+}
+function later() { // after the hello: water the plant if you've studied, ask about tomorrow if you're done
+  if (S.today > 0 && store.wateredDay !== dayKey()) { store.wateredDay = dayKey(); save(); setTimeout(water, 6000); }
+  else if (['happy', 'proud'].includes(mood())) setTimeout(askPromise, 7000);
+}
+
+// the plant on her dresser: a leaf per week of your streak (3 to 12), wilting while you skip days
+const mix = (a, b, f) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - f) + parseInt(b.substr(i, 2), 16) * f).toString(16).padStart(2, '0')).join('');
+function plant() {
+  const n = clamp(3 + (S.streak / 7 | 0), 3, 12), wilt = S.today ? 0 : Math.min(S.missed, 3) / 3;
+  const leaves = [...Array(n).keys()].sort((a, b) => b % 2 - a % 2); // darker back leaves first
+  document.getElementById('plant').innerHTML = leaves.map(i => {
+    const f = i / (n - 1) * 2 - 1, a = f * (50 + n * 2) * (1 + wilt * 0.7), L = 15 - Math.abs(f) * 4 + (i % 2) * 2;
+    const [green, brown] = i % 2 ? ['#6f9479', '#7d6a48'] : ['#86ab8f', '#9c8758'];
+    return `<ellipse cx="159" cy="${40 - L}" rx="${i % 2 ? 4.5 : 5}" ry="${L}" transform="rotate(${a.toFixed(1)} 159 40)" fill="${mix(green, brown, wilt)}"/>`;
+  }).join('');
+}
+function water() {
+  const g = document.getElementById('drops');
+  g.innerHTML = [150, 156, 162, 168, 159].map((x, i) => `<circle class="drop" cx="${x}" cy="${8 + i % 2 * 5}" r="1.6" style="animation-delay:${i * 0.18}s"/>`).join('');
+  setTimeout(() => g.innerHTML = '', 2200);
+  if (!R.talk) { R.blush = 1.5; say(pick('water')); }
+  if (['happy', 'proud'].includes(mood())) setTimeout(askPromise, 6000);
+}
+// the room follows the clock: warm in the morning, dusk in the evening, her desk lamp at night
+function sky() {
+  const h = S.hour, [c, lamp] = h >= 5 && h < 9 ? ['#3a2836', 0] : h < 17 ? ['#231d3a', 0] : h < 20 ? ['#36223a', 0.5] : ['#17162c', 1];
+  document.documentElement.style.setProperty('--sky', c);
+  document.getElementById('glow').style.opacity = lamp;
+}
+
+// done for the day: will you come tomorrow? (she brings it up next time, see welcome)
+function askPromise() {
+  const d = dayKey();
+  if (store.askedDay === d || !active || R.talk || caught || !['happy', 'proud'].includes(mood())) return;
+  store.askedDay = d; save();
+  say(['promiseAsk', 0], 3.5, [
+    ['约好了', 'promise', () => { store.promise = d; save(); R.heart = 2.5; R.blush = 2.5; say(pick('promiseYes')); }],
+    ['不一定', 'maybe', () => { R.huff = 1.5; say(pick('promiseNo'), 2); }],
+  ]);
+}
+// a pop quiz on a word you studied: pick its meaning from three. Twice a day at most, nothing goes in your reviews.
+const short = m => m.split(/[;；,，(（]/)[0].trim().slice(0, 28);
+function quiz() {
+  const ws = (S.words ?? []).filter(w => w.m), d = dayKey();
+  const q = store.quiz?.d === d ? store.quiz : { d, n: 0 };
+  const w = ws[Math.random() * ws.length | 0], others = ws.filter(x => short(x.m) !== short(w?.m ?? '')).sort(() => Math.random() - 0.5).slice(0, 2);
+  if (q.n >= 2 || others.length < 2) return false;
+  q.n++; store.quiz = q; save();
+  word = w; R.qmark = 15; look = { x: 0, y: 0 };
+  say(pick('quizAsk'), 4, [w, ...others].sort(() => Math.random() - 0.5).map(o => [short(o.m), '', () => {
+    R.qmark = 0; word = w;
+    if (o === w) { R.heart = 2.5; R.blush = 2; love(1); say(pick('quizRight')); }
+    else { R.sweat = 2; say(pick('quizWrong'), 4.5); }
+  }]));
+  return true;
+}
+function gazeAt(p) { // big glances usually come with a blink
+  if (Math.hypot(p.x - look.x, p.y - look.y) > 0.45 && blinkT < 0 && Math.random() < 0.6) blinkT = 0;
+  look = { x: p.x, y: p.y };
 }
 
 // ---------- pixi + model ----------
@@ -176,27 +363,41 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // reactions & timers (seconds left)
-const R = { blush: 0, heart: 0, dizzy: 0, bang: 0, sweat: 0, qmark: 0, awake: 0, talk: 0, squint: 0, tilt: 0, dodge: 0, hurt: 0, huff: 0, turn: 0, sing: 0, yawn: 0, rub: 0 };
-let pats = [], pokes = [], dodgeDir = 1;
+const R = { blush: 0, heart: 0, dizzy: 0, bang: 0, sweat: 0, qmark: 0, awake: 0, talk: 0, squint: 0, tilt: 0, dodge: 0, hurt: 0, huff: 0, turn: 0, sing: 0, yawn: 0, rub: 0, bored: 0, sigh: 0, inhale: 0, daze: 0, fly: 0 };
+let pats = [], pokes = [], dodgeDir = 1, tiltDir = 1;
 let drag = null, rubFor = 0, rubX = 0, rubLvl = 0, rubLine = 0; // head rubs: finger held down and moving on her head
-let look = { x: 0, y: 0 }, gaze = { x: 0, y: 0 }, glanceAt = 0, pointerAt = -9, pointer = { x: 0, y: 0 };
-let blinkAt = 1, blinkT = -1, t = 0, gameAt = 6, gameT = -1, chatAt = 30, yawnAt = 8;
+// gaze: eyes flick to a target (a saccade) and twitch while they hold it, the head turns after them
+let look = { x: 0, y: 0 }, eye = { x: 0, y: 0 }, head = { x: 0, y: 0 }, micro = { x: 0, y: 0 }, microAt = 0;
+let glanceAt = 0, pointerAt = -9, pointer = { x: 0, y: 0 }, interest = 1, touchedAt = 0, attnAt = 150, quizAt = 75;
+let blinkAt = 1, blinkT = -1, t = 0, gameAt = 6, gameT = -1, chatAt = 30, yawnAt = 8, sighAt = 20, dazeAt = 30;
+let breathPh = 0, breathDepth = 1, shift = 0, shiftTo = 0, shiftAt = 4; // uneven breaths, weight moving foot to foot
+let caught = null; // what she was up to when you opened her tab, and when she notices you
+let tiltG = 0, tiltS = 0, shakes = []; // phone tilt and shakes
 
 PIXI.live2d.Live2DModel.from('model/zero.model3.json', { autoInteract: false, idleMotionGroup: 'none' }).then(model => {
   m = window.m = model; core = m.internalModel.coreModel;
   m.internalModel.eyeBlink = undefined;          // we blink ourselves
   m.internalModel.breath?.setParameters?.([]);   // and breathe
+  // Cubism 4.2 multiply colors (her black hair is one): the bundled renderer predates them, so tint each mesh
+  // through the model color it draws with. It asks for the mesh's texture right before drawing it.
+  const mul = core.getModel().drawables.multiplyColors, r = m.internalModel.renderer;
+  if (mul) {
+    let i = 0;
+    const tex = core.getDrawableTextureIndices.bind(core), color = r.getModelColor.bind(r);
+    core.getDrawableTextureIndices = d => tex(i = d);
+    r.getModelColor = () => { const c = color(); c.R *= mul[i * 4]; c.G *= mul[i * 4 + 1]; c.B *= mul[i * 4 + 2]; return c; };
+  }
   app.stage.addChild(m);
   fit(); addEventListener('resize', fit);
   m.internalModel.on('afterMotionUpdate', apply);
   app.ticker.add(() => frame(app.ticker.deltaMS / 1000));
-  if (!APP) setTimeout(() => say(line(mood())), 600);
+  if (!APP) setTimeout(greet, 600);
 }).catch(e => console.error('load failed', e));
 
 function fit() {
   if (!m) return;
-  const y0 = 600, y1 = 3900, s = Math.min(innerHeight / (y1 - y0), innerWidth / 1500);
-  m.scale.set(s); m.x = innerWidth / 2 - FACE.x * s; m.y = innerHeight * 0.12 - y0 * s;
+  const y0 = 650, y1 = 3150, s = Math.min(innerHeight / (y1 - y0), innerWidth / 1250); // head to hips, a little close
+  m.scale.set(s); m.x = innerWidth / 2 - FACE.x * s; m.y = innerHeight * 0.16 - y0 * s; // room for the bubble above her ears
   const zz = document.getElementById('zz'); zz.style.left = (m.x + 1900 * s) + 'px'; zz.style.top = (m.y + 900 * s) + 'px'; zz.style.fontSize = Math.max(14, 160 * s) + 'px';
 }
 
@@ -210,33 +411,63 @@ function frame(dt) {
   const sleepy = md === 'sleepy' || md === 'bedtime';
   const away = md === 'angry' || md === 'cold' || R.turn > 0;
 
-  // idle chatter, yawns, singing
-  if (t > chatAt) { chatAt = t + rnd(25, 45); if (!R.talk && !R.dizzy) say(line(md)); }
-  if (sleepy && t > yawnAt) { yawnAt = t + rnd(10, 18); R.yawn = 1.8; }
-  if ((md === 'happy' || md === 'proud') && !R.sing && gameT < 0 && Math.random() < dt / 40) { R.sing = 6; say(pick('sing'), 5); }
+  const nice = !sleepy && ['cheer', 'almost', 'happy', 'proud', 'reunion'].includes(md), tp = nice ? temper() : '';
 
-  // where she looks: your finger, else idle glances that depend on mood
-  if (t - pointerAt < 2.5 && !away && !R.dodge) { look.x = pointer.x; look.y = pointer.y; }
-  else if (t > glanceAt || R.turn > 0) {
+  // caught in the act: whatever she was doing when you opened her tab, until she notices you
+  if (caught) {
+    if (caught.what === 'sing') R.sing = Math.max(R.sing, 0.5);
+    if (caught.what === 'game') gameT = Math.max(gameT, 0);
+    if (caught.what === 'mope') { look = { x: rnd(-0.1, 0.1), y: -0.5 }; glanceAt = t + 1; }
+    if (t > caught.at) notice();
+  }
+
+  // idle chatter, yawns, singing, sighs, spacing out, wanting attention
+  if (t > chatAt) { chatAt = t + rnd(25, 45) * (tp === 'clingy' ? 0.7 : 1); if (!R.talk && !R.dizzy && !caught) say(chatter(md, tp)); }
+  if (sleepy && t > yawnAt) { yawnAt = t + rnd(10, 18); R.yawn = 1.8; }
+  if ((md === 'happy' || md === 'proud') && !R.sing && gameT < 0 && !caught && Math.random() < dt / 40) { R.sing = 6; say(pick('sing'), 5); }
+  if ((sleepy || ['lonely', 'teary', 'sulky', 'cold'].includes(md)) && t > sighAt) { sighAt = t + rnd(18, 40); if (!R.talk) R.sigh = 2.6; }
+  if (tp === 'spacey' && t > dazeAt) { dazeAt = t + rnd(20, 40); R.daze = 1.8; look = { x: rnd(-0.2, 0.2), y: 0.45 }; glanceAt = t + 1.8; }
+  if (nice && t - touchedAt > 150 && t > attnAt && !R.talk && !caught) { attnAt = t + rnd(150, 240); look = { x: 0, y: 0 }; R.bang = 0.6; say(pick('attention')); }
+  if (nice && t > quizAt && t - touchedAt > 20 && !R.talk && !caught) { quizAt = t + rnd(240, 480); quiz(); }
+
+  // where she looks: your finger (until it gets boring), else idle glances that depend on mood
+  const tracking = t - pointerAt < 2.5 && !away && !R.dodge && !R.bored && !caught;
+  if (tracking) {
+    gazeAt(pointer);
+    if ((interest -= dt / (tp === 'clingy' ? 12 : 7)) <= 0) { interest = 1; R.bored = rnd(1.5, 3); glanceAt = 0; } // seen it, looks off
+  } else interest = Math.min(1, interest + dt / 4);
+  if (!tracking && (t > glanceAt || R.turn > 0) && !(caught?.what === 'mope')) {
     glanceAt = t + rnd(1.5, 5);
-    const r = Math.random();
-    look = R.turn > 0 ? { x: -0.95, y: 0.15 }
+    const r = Math.random(), center = tp === 'clingy' ? 0.65 : tp === 'bratty' ? 0.3 : 0.45;
+    gazeAt(R.turn > 0 ? { x: -0.95, y: 0.15 }
+      : R.bored ? { x: rnd(0.55, 0.85) * (Math.random() < 0.5 ? -1 : 1), y: rnd(-0.1, 0.35) }
       : sleepy ? { x: rnd(-0.15, 0.15), y: -0.35 }
       : md === 'lonely' || md === 'teary' ? { x: rnd(-0.3, 0.3), y: r < 0.7 ? -0.45 : 0 }
       : md === 'angry' ? (r < 0.75 ? { x: -0.75, y: 0.1 } : { x: 0, y: 0 }) // hmph, looks away, peeks back
       : md === 'cold' ? (r < 0.92 ? { x: rnd(-0.95, -0.7), y: rnd(-0.4, -0.1) } : { x: 0, y: 0 }) // barely looks at you
       : md === 'sulky' ? { x: rnd(0.2, 0.5), y: 0 }
-      : r < 0.45 ? { x: 0, y: 0 } : { x: rnd(-0.6, 0.6), y: rnd(-0.3, 0.35) };
+      : r < center ? { x: 0, y: 0 } : { x: rnd(-0.6, 0.6), y: rnd(-0.3, 0.35) });
   }
-  // eyes lead, head follows
-  const ek = 1 - Math.exp(-dt * 18); gaze.x += (look.x - gaze.x) * ek; gaze.y += (look.y - gaze.y) * ek;
+  // eyes jump in ~50 ms and twitch while they hold; the head turns after them (and faster when startled)
+  if (t > microAt) { microAt = t + rnd(0.25, 0.9); micro = { x: rnd(-0.035, 0.035), y: rnd(-0.03, 0.03) }; }
+  const ek = 1 - Math.exp(-dt * 45), hk = 1 - Math.exp(-dt * (R.bang ? 9 : 4));
+  eye.x += (look.x + micro.x - eye.x) * ek; eye.y += (look.y + micro.y - eye.y) * ek;
+  head.x += (look.x - head.x) * hk; head.y += (look.y - head.y) * hk;
 
-  // blink (slower and heavier when she's cold)
+  // blink (slower and heavier when she's cold; big glances usually come with one, see gazeAt)
   if (t > blinkAt && blinkT < 0) { blinkT = 0; blinkAt = t + (Math.random() < 0.15 ? 0.25 : rnd(2, 5.5)) * (md === 'cold' ? 1.6 : 1); }
   let eyeOpen = 1;
-  if (blinkT >= 0) { blinkT += dt; const p = blinkT / (md === 'cold' ? 0.3 : 0.16); eyeOpen = p < 0.5 ? 1 - p * 2 : p < 1 ? (p - 0.5) * 2 : 1; if (p >= 1) blinkT = -1; }
+  if (blinkT >= 0) { blinkT += dt; const p = blinkT / (md === 'cold' || tp === 'spacey' ? 0.3 : 0.16); eyeOpen = p < 0.5 ? 1 - p * 2 : p < 1 ? (p - 0.5) * 2 : 1; if (p >= 1) blinkT = -1; }
 
-  const breath = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / (sleepy ? 5 : 3.6));
+  // breathing: each breath a little different, a sigh now and then, a quick breath in before she talks
+  breathPh += dt / ((sleepy ? 5 : 3.6) * (1 + 0.12 * Math.sin(t * 0.13)));
+  if (breathPh >= 1) { breathPh -= 1; breathDepth = rnd(0.7, 1); }
+  const sp = R.sigh ? 1 - R.sigh / 2.6 : 0, sighIn = R.sigh ? (sp < 0.3 ? sp / 0.3 : 1 - (sp - 0.3) / 0.7) : 0, sighOut = sp > 0.3 ? sighIn : 0;
+  const breath = Math.max(breathDepth * (0.5 - 0.5 * Math.cos(breathPh * 2 * Math.PI)), sighIn, R.inhale ? 0.9 : 0);
+  // weight moves foot to foot every few seconds; a tilted phone tips her the other way, the physics swing her hair
+  if (t > shiftAt) { shiftAt = t + rnd(6, 14); shiftTo = rnd(-1, 1); }
+  shift += (shiftTo - shift) * (1 - Math.exp(-dt * 1.2));
+  tiltS += (tiltG - tiltS) * (1 - Math.exp(-dt * 4));
   const sway = (Math.sin(t * 0.55) * 0.6 + Math.sin(t * 0.23) * 0.4) * (md === 'cold' ? 0.3 : R.sing ? 2.2 : 1);
   const nod = sleepy ? Math.max(0, Math.sin(t * 0.7)) ** 6 * -14 : 0; // dozing head-drops
   const yawn = R.yawn ? Math.sin(Math.PI * (1 - R.yawn / 1.8)) : 0;
@@ -244,22 +475,28 @@ function frame(dt) {
   // playing the game console when done for the day
   const game = (md === 'happy' || md === 'proud') && worn.has('game') && unlocked(UNLOCKS.find(u => u[0] === 'game'));
   if (game && t > gameAt && gameT < 0 && !R.sing) { gameT = 0; }
-  if (gameT >= 0) { gameT += dt; if (gameT > 9 || !game) { gameT = -1; gameAt = t + rnd(10, 20); } }
-  const playing = gameT >= 0;
+  if (gameT >= 0) { gameT += dt; if (gameT > 9 && !caught || !game) { gameT = -1; gameAt = t + rnd(10, 20); } }
+  const gaming = gameT >= 0;
 
   rubLvl += ((R.rub ? 1 : 0) - rubLvl) * (1 - Math.exp(-dt * 6));
   const rubbing = rubLvl > 0.05, melt = rubbing && md !== 'cold' && md !== 'angry' ? rubLvl : 0;
 
   const W = want;
   for (const k in W) W[k] = 0;
-  W.ParamAngleX2 = gaze.x * 22 + sway * 4 + (md === 'sulky' ? -12 : 0) - (R.dodge ? dodgeDir * 26 * Math.min(1, R.dodge) : 0);
-  W.ParamAngleX3 = gaze.y * -18 + nod + (playing ? -10 : 0) + breath * 1.5 + yawn * 8 - melt * 7;
-  W.ParamAngleX4 = sway * 5 + R.tilt * 4 + (R.dizzy ? Math.sin(t * 9) * 10 : 0) + (md === 'sulky' ? -6 : 0) + melt * rubX * -12 + melt * Math.sin(t * 7) * 2.5; // leans into your hand
-  W.ParamEyeBallX = playing ? 0 : md === 'sulky' ? 0.7 : clamp(gaze.x * 1.4, -1, 1); // sulky: head away, eyes on you
-  W.ParamEyeBallY = playing ? -0.5 : clamp(-gaze.y * 1.1, -0.5, 0.5);
+  const still = md === 'cold' ? 0.3 : 1;
+  W.ParamAngleX2 = head.x * 22 + sway * 4 + shift * 2 * still + tiltS * 4 + (md === 'sulky' ? -12 : 0) - (R.dodge ? dodgeDir * 26 * Math.min(1, R.dodge) : 0);
+  W.ParamAngleX3 = head.y * -18 + nod + (gaming ? -10 : 0) + breath * 1.5 - sighOut * 6 + yawn * 8 - melt * 7;
+  W.ParamAngleX4 = sway * 5 + shift * 3 * still + tiltS * 12 + R.tilt * tiltDir * 4 + (R.dizzy ? Math.sin(t * 9) * 10 : 0) + (md === 'sulky' ? -6 : 0) + melt * rubX * 12 + melt * Math.sin(t * 7) * 2.5; // leans into your hand (+X4 tips her head to screen right)
+  // her body follows: turns a little after her head, leans with her weight, rocks back when startled
+  W.ParamBodyAngleX = head.x * 4 + shift * 2.5 * still + sway * 1.5 - (R.dodge ? dodgeDir * 6 * Math.min(1, R.dodge) : 0);
+  W.ParamBodyAngleZ5 = shift * 3 * still + sway * 1.5 + tiltS * 6 + R.tilt * tiltDir * 1.5 + melt * rubX * 3;
+  W.ParamBodyAngleY3 = breath * 1.2 - (R.bang ? 4 * Math.min(1, R.bang) : 0) + (gaming ? 3 : 0);
+  // eyes point past where the head is aimed until it catches up
+  W.ParamEyeBallX = gaming ? 0 : md === 'sulky' ? 0.7 : clamp(eye.x * 1.4 + (eye.x - head.x) * 0.9, -1, 1); // sulky: head away, eyes on you
+  W.ParamEyeBallY = gaming ? -0.5 : clamp(-eye.y * 1.1 - (eye.y - head.y) * 0.7, -0.5, 0.5);
   W.ParamBreath = breath;
   mouth += (clamp(voiceLevel() * 7, 0, 1) - mouth) * (1 - Math.exp(-dt * 30));
-  const flap = !playing.length && R.talk > 0 ? Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3)) * (R.sing ? 0.9 : 0.7) : 0;
+  const flap = !playing.length && R.talk > 0 ? Math.abs(Math.sin(t * 17) * Math.sin(t * 5.3)) * (R.sing ? 0.9 : 0.7) : 0; // muted: flap instead
   W.ParamMouthOpenY = Math.max(yawn, mouth, flap);
 
   // mood faces
@@ -269,16 +506,18 @@ function frame(dt) {
   if (sleepy) { open = 0.32 + Math.sin(t * 0.9) * 0.08; form = 0; pillow(); }
   if (md === 'cheer') { form = 0.6; smile = 0.2; open = 1.05; }
   if (md === 'almost') { form = 0.8; smile = 0.1; open = 1.12; ex.fase53 = 1; ex.fase105 = 1; }
-  if (md === 'happy') { form = 1; smile = 0.8; ex.fase55 = 1; ex.fase53 = playing ? 0 : 1; }
-  if (md === 'proud') { form = 1; smile = 0.6; ex.fase55 = 1; ex.fase102 = playing ? 0 : 1; }
+  if (md === 'happy') { form = 1; smile = 0.8; ex.fase55 = 1; ex.fase53 = gaming ? 0 : 1; }
+  if (md === 'proud') { form = 1; smile = 0.6; ex.fase55 = 1; ex.fase102 = gaming ? 0 : 1; }
   if (md === 'reunion') { form = 0.7; smile = 0.4; ex.fase56 = 1; ex.fase55 = 1; }
   if (md === 'lonely') { form = -0.5; brow = -0.6; ex.fase78 = 1; open = 0.85; }
   if (md === 'teary') { form = -0.7; brow = -0.8; ex.fase56 = 1; ex.fase78 = 1; open = 0.85; }
   if (md === 'angry') { form = -1; ex.fase90 = 1; ex.fase76 = 1; ex.fase54 = 1; brow = 1; }
   if (md === 'sulky') { form = -1; ex.fase90 = 1; ex.fase76 = 1; ex.fase55 = 1; open = 0.9; }
   if (md === 'cold') { form = -0.3; ex.fase54 = 1; ex.fase78 = 1; open = 0.72; }
-  if (playing) { ex.fase128 = 1; ex.fase19 = 1; ex.fase21 = 1; ex.fase132 = Math.sin(t * 3.1) > 0.3 ? 1 : 0; ex.fase133 = Math.sin(t * 2.3 + 1) > 0.5 ? -1 : 0; }
+  if (gaming) { ex.fase128 = 1; ex.fase19 = 1; ex.fase21 = 1; ex.fase132 = Math.sin(t * 3.1) > 0.3 ? 1 : 0; ex.fase133 = Math.sin(t * 2.3 + 1) > 0.5 ? -1 : 0; }
   if (R.sing) { Object.assign(ex, { fase127: 1, fase124: 1, fase19: 1 }); smile = 0.9; form = 1; R.talk = Math.max(R.talk, 0.2); }
+  if (caught?.what === 'swab') { Object.assign(ex, { fase126: 1, fase127: 1 }); open = 0.7; form = 0.5; } // cleaning her ear
+  if (tp === 'sweet') { smile = Math.max(smile, 0.35); form = Math.max(form, 0.7); }
 
   // reactions on top
   if (R.blush) { ex.fase55 = 1; if (md !== 'sulky') { smile = Math.max(smile, 1); form = 1; } }
@@ -290,6 +529,9 @@ function frame(dt) {
   if (R.sweat) ex.fase59 = 1;
   if (R.qmark) ex.fase106 = 1;
   if (R.squint) open = Math.min(open, 0.6);
+  if (R.daze) { ex.fase58 = 1; ex.fase78 = 1; ex.fase104 = R.daze >= 0.6 ? 1 : 0; if (R.daze < 0.6) ex.fase106 = 1; } // buffering… huh?
+  if (R.fly) ex.fase61 = 1; // poked her head clean off
+  if (sighOut) open *= 1 - sighOut * 0.35;
   if (yawn) open *= 1 - yawn;
   if (melt) { ex.fase55 = 1; if (!sleepy && md !== 'lonely' && md !== 'teary') { smile = Math.max(smile, melt); form = Math.max(form, melt); } else open *= 1 - melt * 0.7; }
 
@@ -297,6 +539,10 @@ function frame(dt) {
   W.ParamEyeLSmile = W.ParamEyeRSmile = smile;
   W.ParamMouthForm2 = form;
   W.ParamBrowRAngle3 = brow;
+  W.Param128 = R.huff ? 1 : md === 'sulky' ? 0.6 : 0; // puffed cheeks
+  W.Param148 = (tp === 'bratty' || md === 'lonely' || md === 'teary') && !R.talk && !R.blush ? 0.6 : 0; // pout
+  // cat ears: up when startled, flat when she's sad or cross, a little flat while you rub her head
+  W.Param56 = W.Param115 = R.bang ? 1 : R.hurt || ['lonely', 'teary', 'cold', 'angry'].includes(md) ? -0.8 : sleepy ? -0.4 : -melt * 0.5;
   Object.assign(W, ex);
   W.fase80 = 1; // watermark off
   for (const u of UNLOCKS) if (u[3] && worn.has(u[0]) && unlocked(u)) for (const k in u[3]) W[k] = u[3][k];
@@ -305,7 +551,7 @@ function frame(dt) {
   zz.style.opacity = sleepy && !R.talk ? 1 : 0;
 }
 
-const SNAP = /^(ParamEye[LR]Open|ParamMouthOpenY|fase13[23])$/;
+const SNAP = /^(ParamEye[LR]Open|ParamEyeBall[XY]|ParamMouthOpenY|fase13[23])$/; // eyes flick, they don't glide
 let lastDt = 0.016;
 function apply() {
   const dt = lastDt;
@@ -321,18 +567,40 @@ window.closeup = (on = true) => { if (!on) return fit(); const s = innerWidth / 
 window.ff = (secs = 2) => { for (let i = 0; i < secs * 60; i++) { frame(1 / 60); m.update(1000 / 60); app.render(); } };
 
 // ---------- talking ----------
-let bubbleTimer, active = true;
-function say(ln, secs = 3.5) {
-  if (!active) return; // the app still pushes state while her tab is hidden; she stays quiet
-  const { zh, en } = render(ln), b = document.getElementById('bubble');
+let bubbleTimer, active = true, said = null;
+const bubble = document.getElementById('bubble');
+const hideBubble = s => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => bubble.classList.remove('on'), s * 1000); };
+// [label zh, label en, onTap]: buttons under her line (a promise, a quiz); the bubble stays up until you answer
+function say(ln, secs = 3.5, chips) { // resolves to how long she talks
+  if (!active || !LINES[ln?.[0]]?.[ln[1]]) return Promise.resolve(0); // hidden tab: the app still pushes state, she stays quiet
+  const { zh, en } = render(ln), b = bubble, key = ln[0] + '_' + ln[1];
+  const heard = store.heard ??= {};
   b.innerHTML = '<div class="zh"></div><div class="en"></div>';
   b.firstChild.textContent = zh; b.lastChild.textContent = en; b.classList.add('on');
+  // the English fades out once you've heard a line 3 times: listen first, tap the bubble to peek
+  if (/\p{Script=Han}/u.test(zh) && (heard[key] ?? 0) >= 3) b.lastChild.classList.add('hide');
+  heard[key] = (heard[key] ?? 0) + 1; save();
+  said = ln;
+  if (chips) {
+    const row = document.createElement('div'); row.className = 'chips';
+    for (const [lz, le, tap] of chips) {
+      const btn = document.createElement('button'); btn.textContent = lz + (le ? ` · ${le}` : '');
+      btn.onclick = e => { e.stopPropagation(); for (const x of row.children) x.disabled = true; btn.classList.add('ok'); tap(); };
+      row.appendChild(btn);
+    }
+    b.appendChild(row); secs = Math.max(secs, 15);
+  }
   R.talk = zh === '……' ? 0 : Math.min(1.6, 0.25 + zh.length * 0.12); // mouth flaps when she's muted
+  R.inhale = 0.3;
   chatAt = Math.max(chatAt, t + 15);
-  const hide = s => { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => b.classList.remove('on'), s * 1000); };
-  hide(secs);
-  speak(voiceClips(ln)).then(d => { if (d) { R.talk = d; hide(Math.max(secs, d + 0.8)); } });
+  hideBubble(secs);
+  return speak(voiceClips(ln)).then(d => { if (d) { R.talk = d; hideBubble(Math.max(secs, d + 0.8)); } return d; });
 }
+bubble.onclick = () => { // peek at the English and hear it again
+  bubble.querySelector('.en')?.classList.remove('hide');
+  if (said) speak(voiceClips(said)).then(d => { if (d) R.talk = d; });
+  hideBubble(bubble.querySelector('.chips button:not(:disabled)') ? 15 : 4);
+};
 
 // ---------- voice: Xiaoyi clips (voice/, made by tool/zero_voice.py) played back to back ----------
 let actx, analyser, levels, playing = [], speakId = 0, muted = !!store.muted, mouth = 0;
@@ -396,7 +664,7 @@ view.addEventListener('pointermove', e => {
   if (!m) return;
   const p = local(e);
   pointer = { x: clamp((p.x - FACE.x) / 1100, -1, 1), y: clamp((FACE.y - p.y) / 1100, -1, 1) };
-  if (e.pointerType === 'mouse' || e.buttons) pointerAt = t;
+  if (e.pointerType === 'mouse' || e.buttons) pointerAt = touchedAt = t;
   if (drag && e.buttons) {
     const d = Math.hypot(p.x - drag.x, p.y - drag.y); drag.x = p.x; drag.y = p.y; drag.dist += d;
     if (drag.dist >= 120) rub(d, p.x);
@@ -406,18 +674,39 @@ view.addEventListener('pointerdown', e => {
   if (!m) return;
   closeSheets();
   const p = local(e), inside = r => p.x > r[0] && p.x < r[2] && p.y > r[1] && p.y < r[3];
-  pointer = { x: clamp((p.x - FACE.x) / 1100, -1, 1), y: clamp((FACE.y - p.y) / 1100, -1, 1) }; pointerAt = t;
+  pointer = { x: clamp((p.x - FACE.x) / 1100, -1, 1), y: clamp((FACE.y - p.y) / 1100, -1, 1) }; pointerAt = touchedAt = t; interest = 1;
+  if (caught) return notice(); // you walked in on her: the first touch is her noticing you
   if (inside(HEAD)) { drag = { x: p.x, y: p.y, dist: 0, side: p.x < FACE.x ? -1 : 1 }; rubFor = 0; rubLine = t + 0.4; try { view.setPointerCapture(e.pointerId); } catch {} }
   else if (inside(BODY)) poke();
 });
 const release = () => {
   if (!drag) return;
+  const nice = !['cold', 'angry', 'sleepy', 'bedtime'].includes(mood());
   if (drag.dist < 120) pat(drag.side); // barely moved: that was a pat
-  else if (rubFor > 3000 && !['cold', 'angry', 'sleepy', 'bedtime'].includes(mood())) say(pick('rubStop'), 2);
+  else {
+    const ms = count('rubs');
+    if (nice) love(0.5, true);
+    if (nice && ms >= 0) { R.blush = R.heart = 2.5; say(['rubsCount', ms]); }
+    else if (rubFor > 3000 && nice) say(pick('rubStop'), 2);
+  }
   drag = null;
 };
 view.addEventListener('pointerup', release);
 view.addEventListener('pointercancel', release);
+
+// phone tilt leans her (the physics swing her hair), a few hard shakes make her dizzy. Nothing happens without a motion sensor.
+const TILT = 1; // ponytail: sign guessed, not checked on a phone; flip to -1 if she leans the wrong way
+let jolt = false;
+addEventListener('devicemotion', e => {
+  const g = e.accelerationIncludingGravity, a = e.acceleration;
+  if (g?.x != null) tiltG = clamp(g.x / 9.8, -1, 1) * TILT;
+  const hard = a?.x != null && Math.hypot(a.x, a.y, a.z) > 18;
+  if (hard && !jolt && active) {
+    shakes = shakes.filter(x => t - x < 1.5); shakes.push(t);
+    if (shakes.length >= 4 && !R.dizzy) { shakes = []; R.dizzy = 3; R.sweat = 2; say(pick('shake')); }
+  }
+  jolt = hard;
+});
 
 function rub(d, x) {
   const md = mood(), sleepy = (md === 'sleepy' || md === 'bedtime') && !R.awake;
@@ -442,7 +731,7 @@ function rub(d, x) {
 function pat(side) {
   const md = mood();
   pats = pats.filter(x => t - x < 1.6); pats.push(t);
-  const first = pats.length === 1;
+  const first = pats.length === 1, ms = count('pats');
   if ((md === 'sleepy' || md === 'bedtime') && !R.awake) {
     R.awake = 12; R.bang = 1.2; R.sweat = 1.2;
     return say(pick(md === 'bedtime' ? 'wakeBed' : S.due ? 'wakeDue' : 'wakeNone'));
@@ -458,18 +747,25 @@ function pat(side) {
     if (forgive <= 3) { dodgeDir = side; R.dodge = 1.2; R.huff = 1.5; }
     return say(['angryPat', forgive - 1], 2);
   }
-  R.tilt = side * 1.2;
+  tiltDir = side; R.tilt = 1.2; // leans into the hand, like a rub
+  love(0.15, true);
+  if (ms >= 0 && md !== 'lonely' && md !== 'teary') { R.blush = 2.5; R.heart = 2; return say(['patsCount', ms]); } // "that's the 100th time"
   if (pats.length >= 5 && md !== 'lonely' && md !== 'teary') { R.dizzy = 3; R.blush = R.heart = 0; pats = []; return say(pick('dizzy')); }
   if (R.dizzy) return;
   if (md === 'lonely' || md === 'teary') { R.blush = 2; R.hurt = md === 'teary' ? 2.5 : 0; return first && say(pick('patSad'), 2.2); }
   if (md === 'sulky') { R.blush = 2.5; return first && say(pick('patSulky'), 2); }
-  R.blush = 2.5; R.heart = pats.length >= 2 ? 2 : 0;
+  const tp = temper();
+  if (first && tp === 'bratty' && Math.random() < 0.35) { R.huff = 1.2; R.blush = 2; return say(pick('patBratty'), 2); }
+  R.blush = 2.5; R.heart = pats.length >= 2 || tp === 'clingy' ? 2 : 0;
   if (first) say(pick(md === 'cheer' || md === 'almost' || md === 'reunion' ? (Math.random() < 0.5 ? 'patCheer' : 'pat') : 'pat'), 1.8);
 }
 
 function poke() {
   const md = mood();
   pokes = pokes.filter(x => t - x < 4); pokes.push(t);
+  const ms = count('pokes');
+  if (ms === 1 && md !== 'cold') { pokes = []; R.fly = 1.4; R.bang = 2; R.sweat = 3; return say(pick('headFly'), 2).then(() => setTimeout(() => { R.huff = 2; say(['pokesCount', ms]); }, 2200)); } // the 100th
+  if (ms >= 0 && md !== 'cold') { pokes = []; R.huff = 2; R.blush = 2; R.bang = 1; return say(['pokesCount', ms]); }
   if (pokes.length >= 3 && md !== 'cold') { pokes = []; R.turn = 5; R.huff = 2; R.blush = 2; return say(pick('ignore')); }
   if (md === 'cold') { R.squint = 1.5; return say(pick('pokeCold'), 1.6); }
   if (md === 'angry') { R.huff = 1.5; R.bang = 1; return say(pick('pokeAngry'), 1.8); }
@@ -499,11 +795,14 @@ function hud() {
   document.getElementById('noteBig').textContent = big;
   document.getElementById('noteSmall').textContent = small;
   document.getElementById('noteSmall').style.display = small ? '' : 'none';
+  plant(); sky();
 }
 // Icons.style_outlined, the app's card icon
 const CARD = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.53 19.65l1.34.56v-9.03l-2.43 5.86c-.41 1.02.08 2.19 1.09 2.61zm19.5-3.7L17.07 3.98c-.31-.75-1.04-1.21-1.81-1.23-.26 0-.53.04-.79.15L7.1 5.95c-.75.31-1.21 1.03-1.23 1.8-.01.27.04.54.15.8l4.96 11.97c.31.76 1.05 1.22 1.83 1.23.26 0 .52-.05.77-.15l7.36-3.05c1.02-.42 1.51-1.59 1.09-2.6zm-9.2 3.8L7.87 7.79l7.35-3.04h.01l4.95 11.95-7.35 3.05z"/><circle cx="11" cy="9" r="1"/><path d="M5.88 19.75c0 1.1.9 2 2 2h1.45l-3.45-8.34v6.34z"/></svg>';
 function wardrobe() {
   store.worn = [...worn]; save();
+  const lv = level();
+  document.getElementById('close').textContent = `Closeness ${'♥'.repeat(lv)}${'♡'.repeat(3 - lv)}`;
   const have = UNLOCKS.filter(unlocked), locked = UNLOCKS.filter(u => !unlocked(u));
   const group = (head, rows) => rows.length ? `<div class="gh">${head}</div><div class="group">${rows.join('')}</div>` : '';
   document.getElementById('wgrid').innerHTML =
@@ -523,7 +822,7 @@ document.getElementById('wgrid').onclick = e => {
   }
   wardrobe();
 };
-const sliders = [['total', 'Total reviews', 0, 30000, 10], ['today', 'Reviewed today', 0, 300, 1], ['due', 'Cards due', 0, 300, 1], ['missed', 'Days missed', 0, 10, 1], ['hour', 'Hour', 0, 23, 1]];
+const sliders = [['total', 'Total reviews', 0, 30000, 10], ['today', 'Reviewed today', 0, 300, 1], ['due', 'Cards due', 0, 300, 1], ['missed', 'Days missed', 0, 10, 1], ['again', 'Again today', 0, 300, 1], ['streak', 'Streak', 0, 400, 1], ['hour', 'Hour', 0, 23, 1]];
 document.getElementById('sim').innerHTML = sliders.map(([k, n, a, b, st]) => `<div class="row"><label>${n}</label><input type="range" min="${a}" max="${b}" step="${st}" value="${S[k]}" data-k="${k}"><b id="v_${k}">${S[k]}</b></div>`).join('');
 document.getElementById('sim').oninput = e => {
   const k = e.target.dataset.k, before = mood(), was = UNLOCKS.filter(unlocked).length;
@@ -539,28 +838,37 @@ const sheets = { dresser: 'wsheet', sbtn: 'ssheet' };
 function closeSheets() { for (const s of Object.values(sheets)) document.getElementById(s).classList.remove('on'); }
 for (const [b, s] of Object.entries(sheets)) document.getElementById(b).onclick = () => { const el = document.getElementById(s), on = el.classList.contains('on'); closeSheets(); if (!on) el.classList.add('on'); };
 // ---------- the app's side ----------
-let greeted = false, greetedAt = 0; // ms, wall clock (t stops while the tab is hidden)
 window.zeroState = st => {
   const first = !greeted, before = mood();
   Object.assign(S, st);
   if (st.accent) document.documentElement.style.setProperty('--accent', st.accent);
   forgiven = !!S.day && store.forgiven === S.day;
+  const d = dayKey(), dy = store.days ??= {};
+  if (dy.cur?.d !== d) { if (dy.cur) dy.prev = dy.cur; dy.cur = { d, n: 0 }; }
+  dy.cur.n = S.today;
+  if (S.today > 0 && store.studyDay !== d) { store.studyDay = d; love(3); } // showing up is what brings you closer
+  if (S.missed >= 2 && S.today === 0 && store.missDay !== d) { store.missDay = d; love(-(S.missed - 1) * 2); }
+  save();
   const now = UNLOCKS.filter(unlocked), seen = store.seen ?? now.length; // first launch: nothing to celebrate
   if (now.length > seen) {
     const fresh = now.slice(seen), u = fresh[fresh.length - 1];
     for (const x of fresh) { if (x[4]) for (const y of UNLOCKS) if (y[4] === x[4]) worn.delete(y[0]); worn.add(x[0]); }
     toast(`Unlocked: ${u[1]}`); R.bang = 1.5; say(pick('unlock_' + u[0]));
-  } else if (first && active) { greeted = true; greetedAt = performance.now(); say(line(mood())); }
-  else if (mood() !== before) say(line(mood()));
+  } else if (first && active) greet();
+  else if (active && !caught) { const b = greeted && brag(); if (b) say(b); else if (mood() !== before) say(line(mood())); if (greeted) later(); }
   store.seen = now.length;
   hud(); wardrobe();
 };
 // the app stops her ticker while her tab is hidden, and she says hi again if you've been gone a while
 window.zeroActive = on => {
   active = on;
-  if (!on) { app.ticker.stop(); closeSheets(); speak([]); document.getElementById('bubble').classList.remove('on'); return; }
+  if (!on) {
+    app.ticker.stop(); closeSheets(); speak([]); document.getElementById('bubble').classList.remove('on'); caught = null;
+    store.seenTotal = S.total; store.seenAt = Date.now(); save(); // so she can tell what you did while you were gone
+    return;
+  }
   app.ticker.start();
-  if (greeted && performance.now() - greetedAt > 90e3) { greetedAt = performance.now(); setTimeout(() => say(line(mood())), 400); }
+  if (greeted && performance.now() - greetedAt > 90e3) setTimeout(greet, 400);
 };
 if (APP) { document.getElementById('sbtn').remove(); document.getElementById('ssheet').remove(); delete sheets.sbtn; }
 hud(); wardrobe();

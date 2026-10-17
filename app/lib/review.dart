@@ -12,6 +12,7 @@ import 'profile.dart';
 import 'pron.dart';
 import 'srs.dart';
 import 'theme.dart';
+import 'zero_lines.dart';
 
 final _tts = FlutterTts();
 
@@ -61,6 +62,9 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   double _dx = 0; // swipe offset
   bool _dragging = false, _busy = false;
   Timer? _wait; // ticks a countdown while the only card left is the one you just answered
+  String _face = 'idle'; // Zero peeking over the buttons, reacting to each answer
+  Timer? _faceBack;
+  int _run = 0; // answers in a row: + recalled, - Again
   // Flip: a quick 3D turn that swaps faces at the midpoint. Enter: the next card pops in.
   late final _flip = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
   late final _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 200), value: 1);
@@ -77,6 +81,7 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _wait?.cancel();
+    _faceBack?.cancel();
     _flip.dispose();
     _enter.dispose();
     super.dispose();
@@ -86,20 +91,27 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
   int get _swipeGrade => _cur == null ? 3 : autoGrade(_cur!.card, _thinkMs, _baseline);
 
   Future<void> _load() async {
-    final cur = await db.nextCard(deck, extraNew: _extraNew, ahead: _ahead),
-        left = await db.remaining(deck, extraNew: _extraNew);
+    var cur = await db.nextCard(deck, extraNew: _extraNew, ahead: _ahead);
+    final left = await db.remaining(deck, extraNew: _extraNew);
     if (!mounted) return;
     // nextCard learns ahead when nothing else is due, which would hand an Again card straight back.
-    // Hold it until it's actually due instead (learning steps only, not days-away practice-ahead).
+    // Show another card meanwhile (new past the limit, else practice ahead); only when the deck has
+    // nothing else, hold it until it's actually due (learning steps only, not days-away practice-ahead).
     _wait?.cancel();
     _wait = null;
     final early = cur != null && cur.card.id == _last?.before.id ? cur.card.due.difference(DateTime.now()) : Duration.zero;
     if (early > Duration.zero && early <= const Duration(minutes: 20)) {
-      _wait = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (cur!.card.due.isAfter(DateTime.now())) return setState(() {});
-        t.cancel();
-        _load();
-      });
+      final waiting = cur!, other = await db.filler(deck, waiting.card.id);
+      if (!mounted) return;
+      if (other != null) {
+        cur = other;
+      } else {
+        _wait = Timer.periodic(const Duration(seconds: 1), (t) {
+          if (waiting.card.due.isAfter(DateTime.now())) return setState(() {});
+          t.cancel();
+          _load();
+        });
+      }
     }
     setState(() {
       _cur = cur;
@@ -133,6 +145,13 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
     if (c == null || !_revealed || _busy) return;
     _busy = true;
     HapticFeedback.selectionClick();
+    _faceBack?.cancel();
+    _run = rating == 1 ? (_run < 0 ? _run - 1 : -1) : (_run > 0 ? _run + 1 : 1);
+    // a run of 5 gets her cheering, 3 misses in a row and she comforts you
+    final face = _run <= -3 ? 'comfort' : _run > 0 && _run % 5 == 0 ? 'cheer' : const ['again', 'idle', 'good', 'easy'][rating - 1];
+    setState(() => _face = face);
+    _faceBack = Timer(Duration(milliseconds: face == 'comfort' || face == 'cheer' ? 2200 : 1300),
+        () => mounted ? setState(() => _face = 'idle') : null);
     try {
       final logId = await answer(deck, c.card, rating, _watch.elapsedMilliseconds.clamp(0, 60000), thinkMs: _thinkMs);
       _last = (before: c.card, logId: logId);
@@ -234,22 +253,10 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
               ]),
             ),
             Expanded(
-              child: _done
-                  ? _Finished(
-                      reviewed: _reviewed,
-                      more: _ahead
-                          ? null
-                          : () {
-                              _extraNew += 10;
-                              _ahead = true;
-                              _load();
-                            },
-                    )
-                  : _cur == null
-                      ? const SizedBox()
-                      : _wait != null
-                          ? Center(child: Text('Back in ${_countdown(_cur!.card.due)}', style: T.subhead))
-                          : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth)),
+              child: Stack(children: [
+                Positioned.fill(child: _body()),
+                if (!_done) Positioned(right: 12, bottom: 0, child: IgnorePointer(child: _Peek(_face))),
+              ]),
             ),
             if (!_done && _wait == null) SizedBox(height: 76, child: _revealed ? _buttons() : _hint()),
           ]),
@@ -257,6 +264,23 @@ class _ReviewPageState extends State<ReviewPage> with TickerProviderStateMixin {
       ),
     );
   }
+
+  Widget _body() => _done
+      ? _Finished(
+          reviewed: _reviewed,
+          more: _ahead
+              ? null
+              : () {
+                  _extraNew += 10;
+                  _ahead = true;
+                  _load();
+                },
+        )
+      : _cur == null
+          ? const SizedBox()
+          : _wait != null
+              ? Center(child: Text('Back in ${_countdown(_cur!.card.due)}', style: T.subhead))
+              : LayoutBuilder(builder: (context, box) => _swipeable(box.maxWidth));
 
   Widget _animatedCard() => AnimatedBuilder(
         animation: Listenable.merge([_flip, _enter]),
@@ -468,16 +492,51 @@ class _CardView extends StatelessWidget {
   }
 }
 
-class _Finished extends StatelessWidget {
+/// Zero's face peeking up over the answer buttons (stills of her model, assets/zero/peek/).
+/// ponytail: always her default look, not the outfit you dressed her in; render the stills live if that matters.
+class _Peek extends StatelessWidget {
+  const _Peek(this.face);
+  final String face;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, a) => ScaleTransition(
+          scale: Tween(begin: 0.85, end: 1.0).animate(CurvedAnimation(parent: a, curve: Curves.easeOutBack)),
+          alignment: Alignment.bottomCenter,
+          child: FadeTransition(opacity: a, child: child),
+        ),
+        child: Image.asset('assets/zero/peek/$face.png', key: ValueKey(face), height: 72, gaplessPlayback: true),
+      );
+}
+
+class _Finished extends StatefulWidget {
   const _Finished({required this.reviewed, this.more});
   final int reviewed;
   final VoidCallback? more; // null once there's nothing left to practice
 
   @override
-  Widget build(BuildContext context) => Center(
+  State<_Finished> createState() => _FinishedState();
+}
+
+class _FinishedState extends State<_Finished> {
+  late final _says = zeroLine('reviewDone'); // what Zero says about it, picked once
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewed = widget.reviewed, more = widget.more;
+    return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.check_circle_outline, color: C.accent, size: 40),
-          const SizedBox(height: 12),
+          Image.asset('assets/zero/peek/done.png', height: 120),
+          FutureBuilder(
+            future: _says,
+            builder: (context, s) => s.data == null
+                ? const SizedBox(height: 4)
+                : Padding(
+                    padding: const EdgeInsets.only(top: 2, bottom: 10),
+                    child: Column(children: [Text(s.data!.$1, style: T.subhead), Text(s.data!.$2, style: T.caption)]),
+                  ),
+          ),
           Text('All done', style: T.title2),
           const SizedBox(height: 4),
           Text('$reviewed ${reviewed == 1 ? 'card' : 'cards'} reviewed', style: T.subhead),
@@ -491,4 +550,5 @@ class _Finished extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back to deck')),
         ]),
       );
+  }
 }

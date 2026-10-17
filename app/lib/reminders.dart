@@ -11,6 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'db.dart';
 import 'profile.dart';
+import 'zero_lines.dart';
 
 final _plugin = FlutterLocalNotificationsPlugin();
 bool _ready = false;
@@ -41,6 +42,18 @@ Future<bool> askNotificationPermission() async {
       false;
 }
 
+/// The reminder in Zero's words (lines.js notify_* pools). Reminders are re-planned whenever the app goes
+/// to the background, so the one [daysAhead] days out only fires if you haven't opened the app since: she
+/// gets lonelier. Today's sounds like her temperament that day.
+Future<(String, String)> _zeroSays(int daysAhead, DateTime when, int n) async =>
+    await zeroLine(switch (daysAhead) {
+      0 => 'notify_${zeroTemper(when)}',
+      1 || 2 => 'notify_$daysAhead',
+      3 || 4 => 'notify_3',
+      _ => 'notify_5',
+    }, {'due': n}) ??
+    ('……', '…');
+
 /// [at] is 'HH:MM' or '' for off; defaults to the saved `reminder` pref.
 Future<void> scheduleReminders([String? at]) async {
   if (!remindersSupported) return;
@@ -55,14 +68,15 @@ Future<void> scheduleReminders([String? at]) async {
       if (!when.isAfter(now)) continue;
       final w = await db.workAt(when);
       if (w.due + w.fresh == 0) continue;
+      final (zh, en) = await _zeroSays(day, when, w.due + w.fresh);
       await _plugin.zonedSchedule(
         id: day,
         scheduledDate: tz.TZDateTime.from(when, tz.UTC),
-        title: w.due > 0 ? '${w.due} ${w.due == 1 ? 'card' : 'cards'} to review' : 'New cards are ready',
-        body: [
+        title: 'Zero: $zh',
+        body: '$en · ${[
           if (w.due > 0) '${w.due} due',
           if (w.fresh > 0) '${w.fresh} new',
-        ].join(' · '),
+        ].join(' · ')}',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails('reminder', 'Daily reminder', channelDescription: 'Your daily study reminder'),
         ),

@@ -6,17 +6,19 @@
 Each line in assets/zero/lines.js is split around its number placeholders, e.g.
 "还有{due张}在等你" -> sleepy_0_0.mp3 ("还有") + zhang_42.mp3 + sleepy_0_1.mp3 ("在等你"),
 and index.html plays the pieces back to back. The split and the "is there anything to say"
-test must match voiceClips() in index.html.
+test must match voiceClips() in index.html. {word} is a word you studied: every term in the starter
+decks gets a clip, w_<fnv1a of the term>.mp3 (wordClip() in index.html); other words go unvoiced.
 """
-import asyncio, json, os, re, sys
+import asyncio, glob, json, os, re, sys, zipfile
 
 import edge_tts
 
 VOICE = 'zh-CN-XiaoyiNeural'
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'zero')
 OUT = os.path.join(ROOT, 'voice')
-HOLE = re.compile(r'\{(?:due|today|days|hour)[张天点]\}')
-SILENT = re.compile(r'[♡♪～~…！？!?。，、,.\s]')
+HOLE = re.compile(r'\{(?:(?:due|today|days|hour|did|yday)[张天点]|word)\}')
+UNVOICED = ('notify_', 'reviewDone')  # read by the app, never spoken
+SILENT = re.compile(r'[♡♪～~…！？!?。，、,.「」\s]')
 NUMBERS = {'zhang': ('张', range(1000)), 'tian': ('天', range(100)), 'dian': ('点', range(24))}
 
 
@@ -25,6 +27,8 @@ def clips():
     lines = json.loads(src[src.index('\nconst LINES =') + 14:src.rindex(';')])
     want = {}
     for pool, entries in lines.items():
+        if pool.startswith(UNVOICED):
+            continue
         for i, (zh, _) in enumerate(entries):
             for k, part in enumerate(HOLE.split(zh)):
                 if SILENT.sub('', part):
@@ -33,7 +37,17 @@ def clips():
         for n in ns:
             want[f'{name}_{n}.mp3'] = f'{n}{unit}'
         want[f'{name}_many.mp3'] = f'好多{unit}'
+    for deck in glob.glob(os.path.join(ROOT, '..', 'starter', '*.sgki')):
+        for n in json.loads(zipfile.ZipFile(deck).read('saguki.json'))['tables']['notes']:
+            want[f'w_{fnv(n["term"])}.mp3'] = n['term']
     return want
+
+
+def fnv(s):  # FNV-1a over code points, same as wordClip() in index.html
+    h = 0x811c9dc5
+    for c in s:
+        h = ((h ^ ord(c)) * 16777619) & 0xffffffff
+    return f'{h:08x}'
 
 
 async def main():

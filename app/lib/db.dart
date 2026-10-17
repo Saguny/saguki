@@ -225,6 +225,14 @@ class AppDb extends _$AppDb {
         (ahead ? await _first('c.reps > 0', [id]) : null);
   }
 
+  /// Something to study while [waiting] sits out its learning step: a new card past the daily limit,
+  /// else the soonest-due other card (practice ahead).
+  Future<Study?> filler(Deck deck, String waiting) async {
+    final id = Variable(deck.id);
+    return await _first('c.reps = 0', [id], order: 'n.rowid') ??
+        await _first('c.reps > 0 AND c.id != ?', [id, Variable(waiting)]);
+  }
+
   /// Cards left in this session (for the progress bar).
   Future<int> remaining(Deck deck, {int extraNew = 0}) async {
     final soon = DateTime.now().add(const Duration(minutes: 20));
